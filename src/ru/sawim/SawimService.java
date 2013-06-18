@@ -13,7 +13,6 @@ import android.os.Messenger;
 import android.util.Log;
 import sawim.chat.ChatHistory;
 import sawim.cl.ContactList;
-import org.bombusmod.scrobbler.MusicReceiver;
 import ru.sawim.activities.SawimActivity;
 
 public class SawimService extends Service {
@@ -22,7 +21,6 @@ public class SawimService extends Service {
     private static final String LOG_TAG = "SawimService";
 
     private final Messenger messenger = new Messenger(new IncomingHandler());
-    private MusicReceiver musicReceiver;
     private Tray tray = null;
 
     public static final int UPDATE_APP_ICON = 1;
