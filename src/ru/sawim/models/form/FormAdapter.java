@@ -57,7 +57,7 @@ public class FormAdapter extends BaseAdapter {
         final Forms.Control c = controls.get(position);
         ViewHolder holder;
         if (convertView == null) {
-            LayoutInflater inf = ((Activity) context).getLayoutInflater();
+            LayoutInflater inf = LayoutInflater.from(context);
             convertView = inf.inflate(R.layout.form_item, null);
             holder = new ViewHolder();
             convertView.setTag(holder);
@@ -152,7 +152,7 @@ public class FormAdapter extends BaseAdapter {
         } else if (Forms.CONTROL_IMAGE == c.type) {
             drawText(c, holder);
             holder.imageView.setVisibility(ImageView.VISIBLE);
-            holder.imageView.setImageBitmap(General.imageToBitmap(c.image));
+            holder.imageView.setImageBitmap(c.image);
         } else if (Forms.CONTROL_LINK == c.type) {
             drawText(c, holder);
         }

@@ -9,7 +9,6 @@ import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import ru.sawim.models.form.VirtualListItem;
-import sawim.SawimUI;
 import sawim.comm.*;
 import sawim.ui.base.Scheme;
 import sawim.util.JLocale;
@@ -28,8 +27,8 @@ public final class MirandaNotes {
     private Jabber jabber;
     private Vector notes = new Vector();
 	
-	private TextList screen = TextList.getInstance();
-    private TextListModel model = new TextListModel();
+	private VirtualList screen = VirtualList.getInstance();
+    private VirtualListModel model = new VirtualListModel();
 
     public MirandaNotes() {
         screen.setCaption(JLocale.getString("notes"));
@@ -37,7 +36,7 @@ public final class MirandaNotes {
     void init(Jabber protocol) {
         jabber = protocol;
         screen.setModel(model);
-        screen.setBuildOptionsMenu(new TextList.OnBuildOptionsMenu() {
+        screen.setBuildOptionsMenu(new VirtualList.OnBuildOptionsMenu() {
             @Override
             public void onCreateOptionsMenu(Menu menu) {
                 menu.add(Menu.FIRST, COMMAND_ADD, 2, JLocale.getString("add_to_list"));
@@ -53,7 +52,7 @@ public final class MirandaNotes {
                 }
             }
         });
-        screen.setOnBuildContextMenu(new TextList.OnBuildContextMenu() {
+        screen.setOnBuildContextMenu(new VirtualList.OnBuildContextMenu() {
             @Override
             public void onCreateContextMenu(ContextMenu menu, int listItem) {
                 menu.add(Menu.FIRST, COMMAND_EDIT, 2, JLocale.getString("edit"));
@@ -73,15 +72,14 @@ public final class MirandaNotes {
                         removeNote(listItem);
                         jabber.getConnection().saveMirandaNotes(getNotesStorage());
                         refresh();
-                        screen.restore();
                         break;
                 }
             }
         });
-        screen.setItemSelectedListener(new TextList.ItemSelectedListener() {
+        screen.setClickListListener(new VirtualList.OnClickListListener() {
             @Override
             public void itemSelected(int position) {
-                Note note = (Note)notes.elementAt(position);
+                Note note = (Note) notes.elementAt(position);
                 new NoteEditor(note).showIt();
             }
 
@@ -98,12 +96,10 @@ public final class MirandaNotes {
     public void showIt() {
         clear();
         notes.removeAllElements();
-
         VirtualListItem wait = model.createNewParser(true);
         wait.addDescription(JLocale.getString("wait"),
                 Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
         model.addPar(wait);
-
         jabber.getConnection().requestMirandaNotes();
         screen.show();
     }
@@ -114,15 +110,12 @@ public final class MirandaNotes {
         note.tags = tags;
         note.text = text;
         notes.addElement(note);
-
         addNote(note);
     }
     private void addNote(Note note) {
 		VirtualListItem parser = model.createNewParser(true);
         parser.addDescription(note.title, Scheme.THEME_FORM_EDIT, Scheme.FONT_STYLE_BOLD);
-
         parser.addDescription("*" + note.tags, Scheme.THEME_TEXT, Scheme.FONT_STYLE_BOLD);
-
         parser.addDescription(note.text, Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
         model.addPar(parser);
     }
@@ -173,60 +166,6 @@ public final class MirandaNotes {
         screen.setCurrentItemIndex(notes.indexOf(note));
     }
 
-    /*public MenuModel getMenu() {
-        MenuModel menu = new MenuModel();
-        menu.addItem("add_to_list", COMMAND_ADD);
-        if (model.getSize() > 0) {
-            menu.addItem("copy_text", COMMAND_COPY);
-        }
-        if (!SawimUI.isClipBoardEmpty()) {
-            menu.addItem("paste", COMMAND_PASTE);
-        }
-        if (model.getSize() > 0) {
-            menu.addItem("edit", COMMAND_EDIT);
-            menu.addItem("delete", COMMAND_DEL);
-            
-            setDefaultCode(COMMAND_EDIT);
-        }
-        menu.setActionListener(this);
-        return menu;
-    }*/
-    /*protected void select(int action) {
-        switch (action) {
-            case COMMAND_ADD: {
-                new NoteEditor(addEmptyNote()).showIt();
-                break;
-            }
-
-            case COMMAND_EDIT: {
-                Note note = (Note)notes.elementAt(0);
-                new NoteEditor(note).showIt();
-                break;
-            }
-
-            case COMMAND_COPY: {
-                //SawimUI.setClipBoardText(screen.getCaption(), getCurrentText());
-                screen.restore();
-                break;
-            }
-
-            case COMMAND_PASTE:
-                Note note = addEmptyNote();
-                note.text = SawimUI.getClipBoardText(false);
-                new NoteEditor(note).showIt();
-                break;
-
-            case COMMAND_DEL:
-                removeNote(0);
-				jabber.getConnection().saveMirandaNotes(getNotesStorage());
-                refresh();
-                screen.restore();
-                break;
-
-            
-        }
-    }*/
-
     private class Note {
         private String title;
         private String tags;
@@ -273,9 +212,6 @@ public final class MirandaNotes {
                 selectNote(note);
 				jabber.getConnection().saveMirandaNotes(getNotesStorage());
             }
-            screen.restore();
         }
     }
 }
-
-

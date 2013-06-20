@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+import ru.sawim.General;
 import ru.sawim.R;
 import ru.sawim.models.form.VirtualListItem;
 
@@ -54,7 +55,7 @@ public class VirtualListAdapter extends BaseAdapter {
         ViewHolder holder;
         VirtualListItem element = getItem(i);
         if (convertView == null) {
-            LayoutInflater inf = ((Activity) baseContext).getLayoutInflater();
+            LayoutInflater inf = LayoutInflater.from(baseContext);
             convertView = inf.inflate(R.layout.virtual_list_item, null);
             holder = new ViewHolder();
             convertView.setTag(holder);
@@ -77,15 +78,30 @@ public class VirtualListAdapter extends BaseAdapter {
         }
         if (element.getLabel() != null) {
             holder.labelView.setVisibility(TextView.VISIBLE);
+            if (element.getThemeTextLabel() > -1) {
+                holder.labelView.setTextColor(General.getColor(element.getThemeTextLabel()));
+            }
             holder.labelView.setText(element.getLabel());
         }
-        if (element.getDescription() != null) {
-            if(element.isTextSelectable()) {
+        if (element.getDescStr() != null) {
+            if (element.isTextSelectable()) {
                 holder.descView.setTextIsSelectable(true);
                 holder.descView.setAutoLinkMask(Linkify.ALL);
             }
             holder.descView.setVisibility(TextView.VISIBLE);
-            holder.descView.setText(element.getDescription());
+            if (element.getThemeTextDesc() > -1) {
+                holder.descView.setTextColor(General.getColor(element.getThemeTextDesc()));
+            }
+            holder.descView.setText(element.getDescStr());
+        } else {
+            if (element.getDescSpan() != null) {
+                if (element.isTextSelectable()) {
+                    holder.descView.setTextIsSelectable(true);
+                    holder.descView.setAutoLinkMask(Linkify.ALL);
+                }
+                holder.descView.setVisibility(TextView.VISIBLE);
+                holder.descView.setText(element.getDescSpan());
+            }
         }
         if (element.getImage() != null) {
             holder.imageView.setVisibility(ImageView.VISIBLE);

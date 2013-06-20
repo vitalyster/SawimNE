@@ -37,6 +37,7 @@ import android.os.Message;
 import android.provider.MediaStore;
 import android.support.v4.app.FragmentActivity;
 import android.text.ClipboardManager;
+import android.util.Log;
 import android.view.*;
 import sawim.FileTransfer;
 import sawim.Sawim;
@@ -45,6 +46,7 @@ import sawim.OptionsForm;
 import sawim.chat.ChatHistory;
 import sawim.cl.ContactList;
 import sawim.forms.ManageContactListForm;
+import sawim.history.HistoryStorage;
 import sawim.modules.Notify;
 import sawim.modules.photo.PhotoListener;
 import org.microemu.MIDletBridge;
@@ -90,7 +92,6 @@ public class SawimActivity extends FragmentActivity {
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         new General().init(this);
         setContentView(R.layout.main);
-
         instance = this;
         PACKAGE_NAME = getApplicationContext().getPackageName();
 
@@ -128,9 +129,8 @@ public class SawimActivity extends FragmentActivity {
                 }
             }
         }));
-
         MIDletInit();
-        if (!General.isServiceStart) {
+        if (!General.initialized) {
             new Sawim().startApp();
             ChatHistory.instance.loadUnreadMessages();
             updateAppIcon();
@@ -139,42 +139,24 @@ public class SawimActivity extends FragmentActivity {
     }
 
     private void MIDletInit() {
-        //try {
         common = new Common();
         MIDletBridge.setMicroEmulator(common);
         common.setRecordStoreManager(new AndroidRecordStoreManager(this));
-
-        System.setProperty("microedition.platform", "microemu-android");
-        System.setProperty("microedition.configuration", "CLDC-1.1");
-        System.setProperty("microedition.profiles", "MIDP-2.0");
-        System.setProperty("microedition.locale", Locale.getDefault().toString());
-        System.setProperty("device.manufacturer", android.os.Build.BRAND);
-        System.setProperty("device.model", android.os.Build.MODEL);
-        System.setProperty("device.software.version", android.os.Build.VERSION.RELEASE);
-
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
             System.setProperty("video.snapshot.encodings", "yes");
         }
-            /* JSR-75 */
         FileSystem fs = new FileSystem();
         fs.registerImplementation();
 
         startService();
         networkStateReceiver.updateNetworkState(this);
         common.initMIDlet();
-        //} catch (Exception e) {
-        //    error(e);
-        //}
     }
 
     private void startService() {
-        //try {
         startService(new Intent(this, SawimService.class));
         registerReceiver(networkStateReceiver, networkStateReceiver.getFilter());
         bindService(new Intent(this, SawimService.class), serviceConnection, BIND_AUTO_CREATE);
-        //} catch (Exception e) {
-        //    error(e);
-        //}
     }
 
     @Override
@@ -184,12 +166,8 @@ public class SawimActivity extends FragmentActivity {
     }
 
     private void quit() {
-        //try {
         unbindService(serviceConnection);
-        //} catch (Exception e) {}
-        //try {
         unregisterReceiver(networkStateReceiver);
-        //} catch (Exception e) {}
         stopService(new Intent(this, SawimService.class));
         ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).cancelAll();
     }
@@ -299,7 +277,6 @@ public class SawimActivity extends FragmentActivity {
                 break;
 
             case OptionsForm.OPTIONS_ACCOUNT:
-                //new OptionsForm().onContextItemSelected(OptionsForm.OPTIONS_ACCOUNT);
                 startActivity(new Intent(this, AccountsListActivity.class));
                 break;
             case OptionsForm.OPTIONS_INTERFACE:
@@ -328,24 +305,6 @@ public class SawimActivity extends FragmentActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void error(Exception e) {
-        final StringBuilder sb = new StringBuilder();
-        sb.append(e.getMessage()).append("\n");
-        for (StackTraceElement ste : e.getStackTrace()) {
-            sb.append(String.format("%s.%s %d\n", ste.getClassName(), ste.getMethodName(), ste.getLineNumber()));
-        }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                AlertDialog alertDialog = new AlertDialog.Builder(SawimActivity.this).create();
-                alertDialog.setTitle("Sawim Error");
-                alertDialog.setMessage(sb.toString());
-                alertDialog.show();
-            }
-        });
-    }
-
-
     public void minimizeApp() {
         Intent startMain = new Intent(Intent.ACTION_MAIN);
         startMain.addCategory(Intent.CATEGORY_HOME);
@@ -356,7 +315,6 @@ public class SawimActivity extends FragmentActivity {
     public boolean isNetworkAvailable() {
         return networkStateReceiver.isNetworkAvailable();
     }
-
 
     private PhotoListener photoListener = null;
     private FileTransfer fileTransferListener = null;
@@ -455,13 +413,6 @@ public class SawimActivity extends FragmentActivity {
                 }
             }
         });
-        /*if (!isActivityThread()) try {
-            synchronized (lock) {
-                lock.wait();
-            }
-            //Thread.sleep(100);
-        } catch (Exception ignored) {
-        }*/
         return text.get();
     }
 
@@ -501,5 +452,13 @@ public class SawimActivity extends FragmentActivity {
         } catch (Exception ignored) {
         }
         return uri.toString();
+    }
+
+    public void showHistory(HistoryStorage history) {
+        String historyFilePath = history.getAndroidStorage().getTextFile();
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        Uri uri = Uri.parse("file://" + historyFilePath);
+        intent.setDataAndType(uri, "text/plain");
+        startActivity(intent);
     }
 }

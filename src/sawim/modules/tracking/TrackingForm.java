@@ -47,14 +47,14 @@ public final class TrackingForm implements TextBoxListener {
     private final ImageList lineList_jabber = ImageList.createImageList("/jabber-status.png");
     private final Icon Status = lineList1.iconAt(STATUS);
     private String uin;
-	private TextList screen = TextList.getInstance();
-    private TextListModel model = new TextListModel();
+	private VirtualList screen = VirtualList.getInstance();
+    private VirtualListModel model = new VirtualListModel();
     private TextBoxView InputBox;
     public TrackingForm(String uin) {
         this.uin = uin;
         screen.setCaption(JLocale.getString("extra_settings"));
 		screen.setModel(model);
-        screen.setItemSelectedListener(new TextList.ItemSelectedListener() {
+        screen.setClickListListener(new VirtualList.OnClickListListener() {
             @Override
             public void itemSelected(int position) {
                 changeStatus(position);
@@ -259,12 +259,8 @@ public final class TrackingForm implements TextBoxListener {
 
     private synchronized void showList() {
 	    model.clear();
-
         VirtualListItem record = model.createNewParser(true);
 		Line line = getLine(0);
-	    /*if (line.status_flag == YES) {
-            record.addDescription("", Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
-        }*/
 		if (line.status_icon != null) {
             record.addIcon(line.status_icon);
         }
@@ -324,7 +320,6 @@ public final class TrackingForm implements TextBoxListener {
 
     public void backToCL() {
         Tracking.setTrackIcon(uin, TRACK);
-        //ContactList.getInstance().activate();
         screen.back();
     }
 
@@ -430,7 +425,6 @@ public final class TrackingForm implements TextBoxListener {
         if ((box == InputBox) && ok) {
 		    setLineText(InputBox.getString());
 			screen.back();
-			screen.restore();
 			return;
 		}
 	}
