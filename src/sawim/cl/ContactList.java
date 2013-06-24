@@ -2,27 +2,38 @@
 
 package sawim.cl;
 
-import DrawControls.tree.*;
-import sawim.FileTransfer;
-import sawim.Options;
-import sawim.chat.MessData;
-import protocol.*;
+import DrawControls.tree.ContactListModel;
+import DrawControls.tree.TreeBranch;
+import DrawControls.tree.VirtualContactList;
+import android.util.Log;
+import android.widget.Toast;
+import protocol.Contact;
+import protocol.Profile;
+import protocol.Protocol;
+import protocol.StatusView;
 import protocol.icq.Icq;
 import protocol.jabber.Jabber;
 import protocol.mrim.Mrim;
 import ru.sawim.General;
 import ru.sawim.activities.SawimActivity;
+import sawim.FileTransfer;
+import sawim.Options;
+import sawim.modules.AutoAbsence;
 
 import java.util.Vector;
 
 public final class ContactList {
+    final static public int SORT_BY_STATUS = 0;
+    final static public int SORT_BY_ONLINE = 1;
+    final static public int SORT_BY_NAME = 2;
     private static final ContactList instance = new ContactList();
-    private VirtualContactList contactList;
     private final StatusView statusView = new StatusView();
+    private VirtualContactList contactList;
     private Contact currentContact;
     private Vector transfers = new Vector();
 
-    public ContactList() {
+    public static ContactList getInstance() {
+        return instance;
     }
 
     public void initUI() {
@@ -37,6 +48,7 @@ public final class ContactList {
         }
         return Profile.protocolTypes[0];
     }
+
     private boolean is(Protocol protocol, Profile profile) {
         Profile exist = protocol.getProfile();
         if (exist == profile) {
@@ -45,6 +57,7 @@ public final class ContactList {
         return (exist.protocolType == profile.protocolType)
                 && exist.userId.equals(profile.userId);
     }
+
     public void addProtocols(Vector accounts) {
         int count = contactList.getModel().getProtocolCount();
         Protocol[] protocols = new Protocol[count];
@@ -53,7 +66,7 @@ public final class ContactList {
         }
         contactList.getModel().removeAllProtocols();
         for (int i = 0; i < accounts.size(); ++i) {
-            Profile profile = (Profile)accounts.elementAt(i);
+            Profile profile = (Profile) accounts.elementAt(i);
             for (int j = 0; j < protocols.length; ++j) {
                 Protocol protocol = protocols[j];
                 if ((null != protocol) && is(protocol, profile)) {
@@ -79,6 +92,7 @@ public final class ContactList {
             }
         }
     }
+
     public void initAccounts() {
         int count = Math.max(1, Options.getAccountCount());
         for (int i = 0; i < count; ++i) {
@@ -88,6 +102,7 @@ public final class ContactList {
             }
         }
     }
+
     public void loadAccounts() {
         int count = contactList.getModel().getProtocolCount();
         for (int i = 0; i < count; ++i) {
@@ -109,6 +124,7 @@ public final class ContactList {
         }
         return type;
     }
+
     private void addProtocol(Profile account, boolean load) {
         Protocol protocol = null;
         byte type = getProtocolType(account);
@@ -135,6 +151,7 @@ public final class ContactList {
         }
         contactList.getModel().addProtocol(protocol);
     }
+
     public Protocol getProtocol(Profile profile) {
         int count = contactList.getModel().getProtocolCount();
         for (int i = 0; i < count; ++i) {
@@ -157,9 +174,6 @@ public final class ContactList {
         return null;
     }
 
-    public static ContactList getInstance() {
-        return instance;
-    }
     public Protocol[] getProtocols() {
         ContactListModel model = contactList.getModel();
         Protocol[] all = new Protocol[model.getProtocolCount()];
@@ -191,18 +205,22 @@ public final class ContactList {
     public void activate() {
         contactList.update();
     }
+
     public void _setActiveContact(Contact c) {
         if (null != c) {
             contactList.setActiveContact(c);
         }
         contactList.getModel().setAlwaysVisibleNode(c);
     }
+
     public void activate(Contact c) {
         _setActiveContact(c);
         activate();
     }
+
     public void activateWithMsg(String message) {
         activate();
+        Toast.makeText(SawimActivity.getInstance(), message, Toast.LENGTH_LONG);
     }
 
     public void autoConnect() {
@@ -218,23 +236,18 @@ public final class ContactList {
         }
     }
 
-    final static public int SORT_BY_STATUS = 0;
-    final static public int SORT_BY_ONLINE = 1;
-    final static public int SORT_BY_NAME   = 2;
-
     public void addTransfer(FileTransfer ft) {
         transfers.addElement(ft);
     }
-    public void removeTransfer(MessData par, boolean cancel) {
+
+    public void removeTransfer(boolean cancel) {
         for (int i = 0; i < transfers.size(); ++i) {
-            FileTransfer ft = (FileTransfer)transfers.elementAt(i);
-            if (ft.is(par)) {
-                transfers.removeElementAt(i);
-                if (cancel) {
-                    ft.cancel();
-                }
-                return;
+            FileTransfer ft = (FileTransfer) transfers.elementAt(i);
+            transfers.removeElementAt(i);
+            if (cancel) {
+                ft.cancel();
             }
+            return;
         }
     }
 
@@ -248,6 +261,7 @@ public final class ContactList {
         }
         return false;
     }
+
     public boolean isConnecting() {
         int count = contactList.getModel().getProtocolCount();
         for (int i = 0; i < count; ++i) {
@@ -258,6 +272,7 @@ public final class ContactList {
         }
         return false;
     }
+
     public boolean disconnect() {
         boolean disconnecting = false;
         int count = contactList.getModel().getProtocolCount();
@@ -285,51 +300,25 @@ public final class ContactList {
             Protocol p = contactList.getModel().getProtocol(i);
             Vector groups = p.getGroupItems();
             for (int groupIndex = 0; groupIndex < groups.size(); ++groupIndex) {
-                ((TreeBranch)groups.elementAt(groupIndex)).setExpandFlag(false);
+                ((TreeBranch) groups.elementAt(groupIndex)).setExpandFlag(false);
             }
             p.getNotInListGroup().setExpandFlag(false);
         }
         contactList.update();
     }
+
     public VirtualContactList getManager() {
         return contactList;
     }
-    
+
     public void setActiveContact(Contact contact) {
-       // boolean isShown = (Sawim.getSawim().getDisplay().getCurrentDisplay() == contactList);
-        //if (isShown && (0 == cursorLock)) {
-            contactList.setActiveContact(contact);
-        //}
-    }
-    private int cursorLock = 0;
-    private int contactListSaveDelay = 0;
-    public final void userActivity() {
-        cursorLock = 4 ;
-        sawim.modules.AutoAbsence.instance.userActivity();
-    }
-    public final void needRosterSave() {
-        contactListSaveDelay = 60 * 4 ;
-    }
-    public final void timerAction() {
-        sawim.modules.AutoAbsence.instance.updateTime();
-        if (0 < cursorLock) {
-            cursorLock--;
-        }
-        if (0 < contactListSaveDelay) {
-            contactListSaveDelay--;
-            if (0 == contactListSaveDelay) {
-                int count = contactList.getModel().getProtocolCount();
-                for (int i = 0; i < count; ++i) {
-                    Protocol p = contactList.getModel().getProtocol(i);
-                    p.safeSave();
-                }
-            }
-        }
+        contactList.setActiveContact(contact);
     }
 
     public final void receivedMessage(Contact contact) {
         markMessages(contact);
     }
+
     public final void markMessages(Contact contact) {
         if (General.getInstance().getUpdateChatListener() != null)
             General.getInstance().getUpdateChatListener().updateChat();
@@ -343,10 +332,31 @@ public final class ContactList {
     public final Contact getCurrentContact() {
         return currentContact;
     }
+
     public final void setCurrentContact(Contact contact) {
         currentContact = contact;
     }
+
     public StatusView getStatusView() {
         return statusView;
+    }
+
+    private int contactListSaveDelay = 0;
+
+    public final void needRosterSave() {
+        contactListSaveDelay = 60 * 4 /* * 250 = 60 sec */;
+    }
+    public final void timerAction() {
+        AutoAbsence.instance.updateTime();
+        if (0 < contactListSaveDelay) {
+            contactListSaveDelay--;
+            if (0 == contactListSaveDelay) {
+                int count = contactList.getModel().getProtocolCount();
+                for (int i = 0; i < count; ++i) {
+                    Protocol p = contactList.getModel().getProtocol(i);
+                    p.safeSave();
+                }
+            }
+        }
     }
 }

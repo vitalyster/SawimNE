@@ -1,6 +1,7 @@
-
 package sawim;
 
+import ru.sawim.R;
+import ru.sawim.SawimApplication;
 import sawim.cl.ContactList;
 import sawim.comm.*;
 import sawim.modules.*;
@@ -11,18 +12,17 @@ import ru.sawim.models.form.ControlStateListener;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
 
-
 public class OptionsForm implements FormListener, ControlStateListener {
 
     private Forms form;
     private int currentOptionsForm;
 
-    public static final int OPTIONS_ACCOUNT    = 8;
-    public static final int OPTIONS_INTERFACE  = 9;
-    public static final int OPTIONS_SIGNALING  = 10;
-    public static final int OPTIONS_ANTISPAM   = 11;
-    public static final int OPTIONS_ABSENCE    = 12;
-    public static final int OPTIONS_ANSWERER   = 13;
+    public static final int OPTIONS_ACCOUNT    = 7;
+    public static final int OPTIONS_INTERFACE  = 8;
+    public static final int OPTIONS_SIGNALING  = 9;
+    public static final int OPTIONS_ANTISPAM   = 10;
+    public static final int OPTIONS_ABSENCE    = 11;
+    public static final int OPTIONS_ANSWERER   = 12;
 
     private void setChecked(String lngStr, int optValue) {
         form.addCheckBox(optValue, lngStr, Options.getBoolean(optValue));
@@ -55,7 +55,6 @@ public class OptionsForm implements FormListener, ControlStateListener {
     private void saveOptionSelector(int opt) {
         Options.setInt(opt, form.getSelectorValue(opt));
     }
-    
 
     private void loadOptionGauge(int opt, String label) {
         form.addVolumeControl(opt, label, Options.getInt(opt));
@@ -115,7 +114,7 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 //    saveOptionInt(Options.OPTION_MIN_ITEM_SIZE, minItemMultipliers);
                 //Scheme.updateUI();
 
-                //    saveOptionBoolean(Options.OPTION_USER_GROUPS);
+                    saveOptionBoolean(Options.OPTION_USER_GROUPS);
                 //    saveOptionSelector(Options.OPTION_USER_ACCOUNTS);
                 //    saveOptionBoolean(Options.OPTION_CL_HIDE_OFFLINE);
                 saveOptionBoolean(Options.OPTION_SAVE_TEMP_CONTACT);
@@ -131,7 +130,6 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 //    saveOptionBoolean(Options.OPTION_SIMPLE_INPUT);
                 saveOptionInt(Options.OPTION_MAX_MSG_COUNT);
 
-                //NativeCanvas.getInstance().getInput().updateInput();
                 ContactList.getInstance().getManager().update();
                 SawimActivity.getInstance().recreateActivity();
                 break;
@@ -156,7 +154,6 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 break;
 
             case OPTIONS_ABSENCE:
-                saveOptionBoolean(Options.OPTION_AA_BLOCK);
                 Options.setInt(Options.OPTION_AA_TIME, form.getSelectorValue(Options.OPTION_AA_TIME) * 5);
                 AutoAbsence.instance.updateOptions();
                 break;
@@ -173,10 +170,10 @@ public class OptionsForm implements FormListener, ControlStateListener {
         }
     }
 
-    public void select(int cmd) {
+    public void select(CharSequence name, int cmd) {
         currentOptionsForm = cmd;
         form = Forms.getInstance();
-        form.init("options_lng", this);
+        form.init(SawimApplication.getContext().getString(R.string.options), this);
         form.setBackPressedListener(new Forms.OnBackPressed() {
             @Override
             public boolean back() {
@@ -186,7 +183,7 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 return true;
             }
         });
-        //form.setCaption(model.getItemText(currentOptionsForm));
+        form.setCaption(name.toString());
         switch (currentOptionsForm) {
             case OPTIONS_INTERFACE:
                 String[] colorSchemes = Scheme.getSchemeNames();
@@ -209,7 +206,7 @@ public class OptionsForm implements FormListener, ControlStateListener {
             //    loadOptionInt(Options.OPTION_MIN_ITEM_SIZE, "item_height_multiplier", minItems, minItemMultipliers);
 
                 form.addString("contact_list", null);
-            //    setChecked("show_user_groups", Options.OPTION_USER_GROUPS);
+                setChecked("show_user_groups", Options.OPTION_USER_GROUPS);
                 
             //    createSelector("show_user_accounts",
             //            "no" + "|" + "by_groups" + "|" + "by_windows", Options.OPTION_USER_ACCOUNTS);
@@ -266,7 +263,6 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 break;
 
             case OPTIONS_ABSENCE:
-                setChecked("after_block", Options.OPTION_AA_BLOCK);
                 form.addSelector(Options.OPTION_AA_TIME, "after_time", "off" + "|5 |10 |15 ", Options.getInt(Options.OPTION_AA_TIME) / 5);
                 break;
 
@@ -306,4 +302,3 @@ public class OptionsForm implements FormListener, ControlStateListener {
         }
     }
 }
-

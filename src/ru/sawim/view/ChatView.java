@@ -18,17 +18,23 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import protocol.Contact;
+import protocol.ContactMenu;
 import protocol.Protocol;
 import protocol.jabber.*;
 import ru.sawim.General;
 import ru.sawim.R;
+import ru.sawim.activities.ChatActivity;
 import ru.sawim.models.MessagesAdapter;
 import ru.sawim.models.MucUsersAdapter;
+import sawim.FileTransfer;
+import sawim.Options;
+import sawim.Sawim;
 import sawim.SawimUI;
 import sawim.chat.Chat;
 import sawim.chat.ChatHistory;
 import sawim.chat.MessData;
 import sawim.cl.ContactList;
+import sawim.comm.StringConvertor;
 import sawim.ui.TextBoxListener;
 import sawim.ui.base.Scheme;
 import sawim.util.JLocale;
@@ -44,83 +50,29 @@ import java.util.List;
  * Time: 20:30
  * To change this template use File | Settings | File Templates.
  */
-public class ChatView extends Fragment implements AbsListView.OnScrollListener, General.OnUpdateChat, TextBoxListener {
+public class ChatView extends Fragment implements AbsListView.OnScrollListener, General.OnUpdateChat {
 
     public static final String PASTE_TEXT = "ru.sawim.PASTE_TEXT";
-    public static final int MENU_COPY_TEXT = 200;
-    private static final int COMMAND_PRIVATE = 0;
-    private static final int COMMAND_INFO = 1;
-    private static final int COMMAND_STATUS = 2;
-    private static final int COMMAND_KICK = 3;
-    private static final int COMMAND_BAN = 4;
-    private static final int COMMAND_DEVOICE = 5;
-    private static final int COMMAND_VOICE = 6;
-    private static final int COMMAND_MEMBER = 7;
-    private static final int COMMAND_MODER = 8;
-    private static final int COMMAND_ADMIN = 9;
-    private static final int COMMAND_OWNER = 10;
-    private static final int COMMAND_NONE = 11;
-    private static final int GATE_COMMANDS = 12;
+
     private static Hashtable<String, Integer> positionHash = new Hashtable<String, Integer>();
-    private final TextView.OnEditorActionListener enterListener = new TextView.OnEditorActionListener() {
-        public boolean onEditorAction(TextView exampleView, int actionId, KeyEvent event) {
-            if (isDone(actionId)) {
-                if ((null == event) || (event.getAction() == KeyEvent.ACTION_DOWN)) {
-                    send();
-                    return true;
-                }
-            }
-            return false;
-        }
-    };
     private Chat chat;
+    private Protocol protocol;
+    private Contact currentContact;
+    private List<MessData> messData;
     private MyListView chatListView;
     private EditText messageEditor;
     private boolean sendByEnter;
     private MessagesAdapter adapter;
-    private Protocol protocol;
-    private Contact currentContact;
     private BroadcastReceiver textReceiver;
     private LinearLayout sidebar;
     private ImageButton usersImage;
-    private MucUsersAdapter usersAdapter;
     private ListView nickList;
     private ImageButton chatsImage;
     private TextView contactName;
     private TextView contactStatus;
     private LinearLayout chatBarLayout;
     private LinearLayout chat_viewLayout;
-    private TextWatcher textWatcher = new TextWatcher() {
-        private String previousText;
-        private int lineCount = 0;
-
-        @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            if (sendByEnter) {
-                previousText = s.toString();
-            }
-        }
-
-        @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
-            if (sendByEnter && (start + count <= s.length()) && (1 == count)) {
-                boolean enter = ('\n' == s.charAt(start));
-                if (enter) {
-                    messageEditor.setText(previousText);
-                    messageEditor.setSelection(start);
-                    send();
-                }
-            }
-            if (lineCount != messageEditor.getLineCount()) {
-                lineCount = messageEditor.getLineCount();
-                messageEditor.requestLayout();
-            }
-        }
-
-        @Override
-        public void afterTextChanged(Editable editable) {
-        }
-    };
+    private MucUsersView mucUsersView;
 
     @Override
     public void onActivityCreated(Bundle b) {
@@ -158,28 +110,103 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         return v;
     }
 
+    public static final int MENU_COPY_TEXT = 1;
+    private static final int ACTION_ADD_TO_HISTORY = 2;
+    private static final int ACTION_TO_NOTES = 3;
+    private static final int ACTION_QUOTE = 4;
+    private static final int ACTION_DEL_CHAT = 5;
+
+    public void onCreateMenu(Menu menu) {
+        boolean accessible = chat.getWritable() && (currentContact.isSingleUserContact() || currentContact.isOnline());
+        if (0 < chat.getAuthRequestCounter()) {
+            menu.add(Menu.FIRST, Contact.USER_MENU_GRANT_AUTH, 0, JLocale.getString("grant"));
+            menu.add(Menu.FIRST, Contact.USER_MENU_DENY_AUTH, 0, JLocale.getString("deny"));
+        }
+        if (!currentContact.isAuth()) {
+            menu.add(Menu.FIRST, Contact.USER_MENU_REQU_AUTH, 0, JLocale.getString("requauth"));
+        }
+        if (accessible) {
+            if (sawim.modules.fs.FileSystem.isSupported()) {
+                menu.add(Menu.FIRST, Contact.USER_MENU_FILE_TRANS, 0, JLocale.getString("ft_name"));
+            }
+            if (FileTransfer.isPhotoSupported()) {
+                menu.add(Menu.FIRST, Contact.USER_MENU_CAM_TRANS, 0, JLocale.getString("ft_cam"));
+            }
+        }
+        if (!currentContact.isSingleUserContact() && currentContact.isOnline()) {
+            menu.add(Menu.FIRST, Contact.CONFERENCE_DISCONNECT, 0, JLocale.getString("leave_chat"));
+        }
+        menu.add(Menu.FIRST, Contact.USER_MENU_STATUSES, 2, R.string.user_statuses);
+        menu.add(Menu.FIRST, ACTION_DEL_CHAT, 0, JLocale.getString("delete_chat"));
+    }
+
+    public void onMenuItemSelected(MenuItem item) {
+        if (item.getItemId() == ACTION_DEL_CHAT) {
+            chat.removeMessagesAtCursor(chatListView.getFirstVisiblePosition());
+            if (0 < messData.size()) {
+                updateChat();
+            } else {
+                ChatHistory.instance.unregisterChat(chat);
+                ContactList.getInstance().activate(null);
+            }
+            return;
+        }
+        new ContactMenu(protocol, currentContact).doAction(getActivity(), item.getItemId());
+    }
+
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        super.onCreateContextMenu(menu, v, menuInfo);
         menu.add(Menu.FIRST, MENU_COPY_TEXT, 0, android.R.string.copy);
+        menu.add(Menu.FIRST, ACTION_QUOTE, 0, JLocale.getString("quote"));
+        if (protocol instanceof Jabber) {
+            menu.add(Menu.FIRST, ACTION_TO_NOTES, 0, R.string.add_to_notes);
+        }
+        if (!Options.getBoolean(Options.OPTION_HISTORY) && chat.hasHistory()) {
+            menu.add(Menu.FIRST, ACTION_ADD_TO_HISTORY, 0, JLocale.getString("add_to_history"));
+        }
     }
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        MessData md = messData.get(info.position);
+        String msg = md.getText();
         switch (item.getItemId()) {
             case MENU_COPY_TEXT:
-                MessData md = chat.getMessData().get(info.position);
                 if (null == md) {
                     return false;
                 }
-                String msg = md.getText();
                 if (md.isMe()) {
                     msg = "*" + md.getNick() + " " + msg;
                 }
-                SawimUI.setClipBoardText(md.isIncoming(), md.getNick(), md.strTime, msg);
-        }
+                SawimUI.setClipBoardText(md.isIncoming(), md.getNick(), md.strTime, msg + "\n");
+                break;
 
-        return true;
+            case ACTION_QUOTE:
+                StringBuffer sb = new StringBuffer();
+                if (md.isMe()) {
+                    msg = "*" + md.getNick() + " " + msg;
+                }
+                sb.append(SawimUI.serialize(md.isIncoming(), md.getNick() + " " + md.strTime, msg));
+                sb.append("\n-----\n");
+                SawimUI.setClipBoardText(0 == sb.length() ? null : sb.toString());
+                break;
+
+            case ACTION_ADD_TO_HISTORY:
+                chat.addTextToHistory(md);
+                break;
+
+            case ACTION_TO_NOTES:
+                MirandaNotes notes = ((Jabber)protocol).getMirandaNotes();
+                notes.showIt();
+                MirandaNotes.Note note = notes.addEmptyNote();
+                note.tags = md.getNick() + " " + md.strTime;
+                note.text = md.getText();
+                notes.showNoteEditor(note);
+                break;
+        }
+        return super.onContextItemSelected(item);
     }
 
     private void registerReceivers() {
@@ -208,6 +235,22 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        destroy(chat);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        pause(chat);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        resume(chat);
+    }
+
+    public void destroy(Chat chat) {
         General.getInstance().setOnUpdateChat(null);
         if (chat == null) return;
         chat.resetUnreadMessages();
@@ -215,23 +258,12 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         unregisterReceivers();
     }
 
-    @Override
-    public void onPause() {
-        super.onPause();
-        Log.e("ChatView", "onPause()");
+    public void pause(Chat chat) {
         if (chat == null) return;
-        //if (!chatListView.isScroll())
         addLastPosition(chat.getContact().getUserId(), chatListView.getFirstVisiblePosition());
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        Log.e("ChatView", "onResume()");
-        resume(chat);
-    }
-
-    private void resume(final Chat chat) {
+    public void resume(final Chat chat) {
         if (chat == null) return;
         getActivity().runOnUiThread(new Runnable() {
             @Override
@@ -267,7 +299,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
             resume(current);
         }
     }
-    private String currMucNik = "";
+
     public void openChat(Protocol p, Contact c) {
         General.getInstance().setOnUpdateChat(null);
         General.getInstance().setOnUpdateChat(this);
@@ -275,7 +307,8 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         protocol = p;
         currentContact = c;
         chat = protocol.getChat(currentContact);
-        adapter = new MessagesAdapter(currentActivity, chat);
+        messData = chat.getMessData();
+        adapter = new MessagesAdapter(currentActivity, chat, messData);
         chatListView = (MyListView) currentActivity.findViewById(R.id.chat_history_list);
         chat.setVisibleChat(true);
 
@@ -296,222 +329,9 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         sidebar.setBackgroundColor(General.getColor(Scheme.THEME_BACKGROUND));
         if (currentContact instanceof JabberServiceContact && currentContact.isConference()) {
             final JabberServiceContact jabberServiceContact = (JabberServiceContact) currentContact;
-            usersAdapter = new MucUsersAdapter(getActivity(), (Jabber) protocol, jabberServiceContact);
-            nickList.setAdapter(usersAdapter);
-            usersImage.setVisibility(View.VISIBLE);
-            nickList.setVisibility(View.VISIBLE);
-            nickList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
-                    final Object o = usersAdapter.getItem(position);
-                    currentActivity.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (o instanceof JabberContact.SubContact) {
-                                JabberContact.SubContact c = (JabberContact.SubContact) o;
-                                insert(c.resource + ", ");
-                                showKeyboard();
-                            }
-                        }
-                    });
-                }
-            });
-            nickList.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-                @Override
-                public boolean onItemLongClick(AdapterView<?> adapterView, View view, final int position, long l) {
-                    final Object o = usersAdapter.getItem(position);
-                    final String nick = usersAdapter.getCurrentSubContact(o);
-                    if (o instanceof String) return false;
-                    final List<MucMenuItem> menuItems = new ArrayList<MucMenuItem>();
-                    MucMenuItem menuItem = new MucMenuItem();
-                    menuItem.addItem(currentActivity.getString(R.string.open_private), COMMAND_PRIVATE);
-                    menuItems.add(menuItem);
-                    menuItem = new MucMenuItem();
-                    menuItem.addItem(currentActivity.getString(R.string.info), COMMAND_INFO);
-                    menuItems.add(menuItem);
-                    menuItem = new MucMenuItem();
-                    menuItem.addItem(currentActivity.getString(R.string.user_statuses), COMMAND_STATUS);
-                    menuItems.add(menuItem);
-                    menuItem = new MucMenuItem();
-                    menuItem.addItem(currentActivity.getString(R.string.adhoc), GATE_COMMANDS);
-                    menuItems.add(menuItem);
-                    int myAffiliation = usersAdapter.getAffiliation(jabberServiceContact.getMyName());
-                    int myRole = usersAdapter.getRole(jabberServiceContact.getMyName());
-                    final int role = usersAdapter.getRole(nick);
-                    final int affiliation = usersAdapter.getAffiliation(nick);
-                    if (myAffiliation == JabberServiceContact.AFFILIATION_OWNER)
-                        myAffiliation++;
-                    if (JabberServiceContact.ROLE_MODERATOR == myRole) {
-                        if (JabberServiceContact.ROLE_MODERATOR > role) {
-                            menuItem = new MucMenuItem();
-                            menuItem.addItem(JLocale.getString("to_kick"), COMMAND_KICK);
-                            menuItems.add(menuItem);
-                        }
-                        if (myAffiliation >= JabberServiceContact.AFFILIATION_ADMIN && affiliation < myAffiliation) {
-                            menuItem = new MucMenuItem();
-                            menuItem.addItem(JLocale.getString("to_ban"), COMMAND_BAN);
-                            menuItems.add(menuItem);
-                        }
-                        if (affiliation < JabberServiceContact.AFFILIATION_ADMIN) {
-                            if (role == JabberServiceContact.ROLE_VISITOR) {
-                                menuItem = new MucMenuItem();
-                                menuItem.addItem(JLocale.getString("to_voice"), COMMAND_VOICE);
-                                menuItems.add(menuItem);
-                            } else {
-                                menuItem = new MucMenuItem();
-                                menuItem.addItem(JLocale.getString("to_devoice"), COMMAND_DEVOICE);
-                                menuItems.add(menuItem);
-                            }
-                        }
-                    }
-                    if (myAffiliation >= JabberServiceContact.AFFILIATION_ADMIN) {
-                        if (affiliation < JabberServiceContact.AFFILIATION_ADMIN) {
-                            if (role == JabberServiceContact.ROLE_MODERATOR) {
-                                menuItem = new MucMenuItem();
-                                menuItem.addItem(JLocale.getString("to_voice"), COMMAND_VOICE);
-                                menuItems.add(menuItem);
-                            } else {
-                                menuItem = new MucMenuItem();
-                                menuItem.addItem(JLocale.getString("to_moder"), COMMAND_MODER);
-                                menuItems.add(menuItem);
-                            }
-                        }
-                        if (affiliation < myAffiliation) {
-                            if (affiliation != JabberServiceContact.AFFILIATION_NONE) {
-                                menuItem = new MucMenuItem();
-                                menuItem.addItem(JLocale.getString("to_none"), COMMAND_NONE);
-                                menuItems.add(menuItem);
-                            }
-                            if (affiliation != JabberServiceContact.AFFILIATION_MEMBER) {
-                                menuItem = new MucMenuItem();
-                                menuItem.addItem(JLocale.getString("to_member"), COMMAND_MEMBER);
-                                menuItems.add(menuItem);
-                            }
-                        }
-                    }
-                    if (myAffiliation >= JabberServiceContact.AFFILIATION_OWNER) {
-                        if (affiliation != JabberServiceContact.AFFILIATION_ADMIN) {
-                            menuItem = new MucMenuItem();
-                            menuItem.addItem(JLocale.getString("to_admin"), COMMAND_ADMIN);
-                            menuItems.add(menuItem);
-                        }
-                        if (affiliation != JabberServiceContact.AFFILIATION_OWNER) {
-                            menuItem = new MucMenuItem();
-                            menuItem.addItem(JLocale.getString("to_owner"), COMMAND_OWNER);
-                            menuItems.add(menuItem);
-                        }
-                    }
-                    AlertDialog.Builder builder = new AlertDialog.Builder(currentActivity);
-                    builder.setTitle(currentContact.getName());
-                    builder.setAdapter(new BaseAdapter() {
-                                           @Override
-                                           public int getCount() {
-                                               return menuItems.size();
-                                           }
+            mucUsersView = new MucUsersView(protocol, jabberServiceContact);
+            mucUsersView.show(getActivity(), nickList, usersImage, this);
 
-                                           @Override
-                                           public MucMenuItem getItem(int i) {
-                                               return menuItems.get(i);
-                                           }
-
-                                           @Override
-                                           public long getItemId(int i) {
-                                               return i;
-                                           }
-
-                                           @Override
-                                           public View getView(int i, View convertView, ViewGroup viewGroup) {
-                                               View row = convertView;
-                                               ItemWrapper wr;
-                                               if (row == null) {
-                                                   LayoutInflater inf = LayoutInflater.from(currentActivity);
-                                                   row = inf.inflate(R.layout.menu_item, null);
-                                                   wr = new ItemWrapper(row);
-                                                   row.setTag(wr);
-                                               } else {
-                                                   wr = (ItemWrapper) row.getTag();
-                                               }
-                                               wr.text = (TextView) row.findViewById(R.id.menuTextView);
-                                               wr.text.setText(getItem(i).nameItem);
-                                               return row;
-                                           }
-                                       }, new DialogInterface.OnClickListener() {
-                                           @Override
-                                           public void onClick(DialogInterface dialog, int which) {
-                                               currMucNik = nick;
-                                               switch (menuItems.get(which).idItem) {
-                                                   case COMMAND_PRIVATE:
-                                                       String jid = Jid.realJidToSawimJid(jabberServiceContact.getUserId() + "/" + nick);
-                                                       JabberServiceContact c = (JabberServiceContact) protocol.getItemByUIN(jid);
-                                                       if (null == c) {
-                                                           c = (JabberServiceContact) protocol.createTempContact(jid);
-                                                           protocol.addTempContact(c);
-                                                       }
-                                                       openChat(protocol, c);
-                                                       break;
-                                                   case COMMAND_INFO:
-                                                       protocol.showUserInfo(usersAdapter.getContactForVCard(nick));
-                                                       break;
-                                                   case COMMAND_STATUS:
-                                                       protocol.showStatus(usersAdapter.getPrivateContact(nick));
-                                                       break;
-                                                   case GATE_COMMANDS:
-                                                       JabberContact.SubContact subContact = jabberServiceContact.getExistSubContact(nick);
-                                                       AdHoc adhoc = new AdHoc((Jabber) protocol, jabberServiceContact);
-                                                       adhoc.setResource(subContact.resource);
-                                                       adhoc.show();
-                                                       break;
-
-                                                   case COMMAND_KICK:
-                                                       kikField();
-                                                       break;
-
-                                                   case COMMAND_BAN:
-                                                       banField();
-                                                       break;
-
-                                                   case COMMAND_DEVOICE:
-                                                       usersAdapter.setMucRole(nick, "v" + "isitor");
-                                                       updateMucList();
-                                                       break;
-
-                                                   case COMMAND_VOICE:
-                                                       usersAdapter.setMucRole(nick, "partic" + "ipant");
-                                                       updateMucList();
-                                                       break;
-                                                   case COMMAND_MEMBER:
-                                                       usersAdapter.setMucAffiliation(nick, "m" + "ember");
-                                                       updateMucList();
-                                                       break;
-
-                                                   case COMMAND_MODER:
-                                                       usersAdapter.setMucRole(nick, "m" + "oderator");
-                                                       updateMucList();
-                                                       break;
-
-                                                   case COMMAND_ADMIN:
-                                                       usersAdapter.setMucAffiliation(nick, "a" + "dmin");
-                                                       updateMucList();
-                                                       break;
-
-                                                   case COMMAND_OWNER:
-                                                       usersAdapter.setMucAffiliation(nick, "o" + "wner");
-                                                       updateMucList();
-                                                       break;
-
-                                                   case COMMAND_NONE:
-                                                       usersAdapter.setMucAffiliation(nick, "n" + "o" + "ne");
-                                                       updateMucList();
-                                                       break;
-                                               }
-                                           }
-                                       }
-                    );
-                    builder.create().show();
-
-                    return false;
-                }
-            });
             if (sidebar.getVisibility() == View.VISIBLE) {
                 sidebar.setVisibility(View.VISIBLE);
             } else {
@@ -558,50 +378,13 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
                 MessData msg = adapter.getItem(position);
                 setText("");
-                setText(chat.onMessageSelected(msg));
+                setText(onMessageSelected(msg));
             }
         });
     }
 
-    private TextBoxView banTextbox;
-    private TextBoxView kikTextbox;
-    private void banField() {
-        banTextbox = new TextBoxView();
-        banTextbox.setTextBoxListener(this);
-        banTextbox.setString("");
-        banTextbox.show(getActivity().getSupportFragmentManager(), "message");
-    }
-    private void kikField() {
-        kikTextbox = new TextBoxView();
-        kikTextbox.setTextBoxListener(this);
-        kikTextbox.setString("");
-        kikTextbox.show(getActivity().getSupportFragmentManager(), "message");
-    }
-    public void textboxAction(TextBoxView box, boolean ok) {
-        String rzn = (box == banTextbox) ? banTextbox.getString() : kikTextbox.getString();
-        String Nick = "";
-        String myNick = currentContact.getMyName();
-        String reason = "";
-        if (rzn.charAt(0) == '!') {
-            rzn=rzn.substring(1);
-        } else {
-            Nick = (myNick == null) ? myNick : myNick + ": ";
-        }
-        if (rzn.length() != 0 && myNick != null) {
-            reason = Nick + rzn;
-        } else {
-            reason = Nick;
-        }
-        if ((box == banTextbox)) {
-            usersAdapter.setMucAffiliationR(currMucNik, "o" + "utcast", reason);
-            banTextbox.back();
-            return;
-        }
-        if ((box == kikTextbox)) {
-            usersAdapter.setMucRoleR(currMucNik, "n" + "o" + "ne", reason);
-            kikTextbox.back();
-            return;
-        }
+    public Chat getCurrentChat() {
+        return chat;
     }
 
     private void showKeyboard(View view) {
@@ -695,8 +478,57 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         }
     }
 
+    private String getBlogPostId(String text) {
+        if (StringConvertor.isEmpty(text)) {
+            return null;
+        }
+        String lastLine = text.substring(text.lastIndexOf('\n') + 1);
+        if (0 == lastLine.length()) {
+            return null;
+        }
+        if ('#' != lastLine.charAt(0)) {
+            return null;
+        }
+        int numEnd = lastLine.indexOf(' ');
+        if (-1 != numEnd) {
+            lastLine = lastLine.substring(0, numEnd);
+        }
+        return lastLine + " ";
+    }
+
+    private String writeMessageTo(String nick) {
+        if (null != nick) {
+            if ('/' == nick.charAt(0)) {
+                nick = ' ' + nick;
+            }
+            nick += Chat.ADDRESS;
+
+        } else {
+            nick = "";
+        }
+        return nick;
+    }
+
+    private boolean isBlogBot() {
+        if (currentContact instanceof JabberContact) {
+            return ((Jabber) protocol).isBlogBot(currentContact.getUserId());
+        }
+        return false;
+    }
+
+    public String onMessageSelected(MessData md) {
+        if (currentContact.isSingleUserContact()) {
+            if (isBlogBot()) {
+                return getBlogPostId(md.getText());
+            }
+            return "";
+        }
+        String nick = ((null == md) || md.isFile()) ? null : md.getNick();
+        return writeMessageTo(chat.getMyName().equals(nick) ? null : nick);
+    }
+
     @Override
-     public void updateChat() {
+    public void updateChat() {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -711,14 +543,20 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
             }
         });
         updateMucList();
+
+        RosterView rosterView = (RosterView) getActivity().getSupportFragmentManager().findFragmentById(R.id.roster_fragment);
+        if (rosterView != null) {
+            rosterView.updateBarProtocols();
+            rosterView.updateRoster();
+        }
     }
 
     public void updateMucList() {
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (usersAdapter != null)
-                    usersAdapter.notifyDataSetChanged();
+                if (mucUsersView != null)
+                    mucUsersView.update();
             }
         });
     }
@@ -740,22 +578,47 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         else chatListView.setScroll(false);
     }
 
-    private class MucMenuItem {
-        String nameItem;
-        int idItem;
+    private TextWatcher textWatcher = new TextWatcher() {
+        private String previousText;
+        private int lineCount = 0;
 
-        public void addItem(String name, int id) {
-            nameItem = name;
-            idItem = id;
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            if (sendByEnter) {
+                previousText = s.toString();
+            }
         }
-    }
 
-    private class ItemWrapper {
-        final View item;
-        TextView text;
-
-        public ItemWrapper(View item) {
-            this.item = item;
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+            if (sendByEnter && (start + count <= s.length()) && (1 == count)) {
+                boolean enter = ('\n' == s.charAt(start));
+                if (enter) {
+                    messageEditor.setText(previousText);
+                    messageEditor.setSelection(start);
+                    send();
+                }
+            }
+            if (lineCount != messageEditor.getLineCount()) {
+                lineCount = messageEditor.getLineCount();
+                messageEditor.requestLayout();
+            }
         }
-    }
+
+        @Override
+        public void afterTextChanged(Editable editable) {
+        }
+    };
+
+    private final TextView.OnEditorActionListener enterListener = new TextView.OnEditorActionListener() {
+        public boolean onEditorAction(TextView exampleView, int actionId, KeyEvent event) {
+            if (isDone(actionId)) {
+                if ((null == event) || (event.getAction() == KeyEvent.ACTION_DOWN)) {
+                    send();
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
 }

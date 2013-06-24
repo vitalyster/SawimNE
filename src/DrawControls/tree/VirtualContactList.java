@@ -1,32 +1,24 @@
-
-
 package DrawControls.tree;
 
-import sawim.Options;
-import sawim.comm.StringConvertor;
-import sawim.comm.Util;
-import sawim.modules.DebugLog;
 import protocol.Contact;
 import protocol.Group;
 import protocol.Protocol;
 import protocol.XStatusInfo;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Vector;
-import android.os.Handler;
-
+import sawim.Options;
+import sawim.comm.StringConvertor;
+import sawim.comm.Util;
 
 public final class VirtualContactList {
 
-    private boolean useGroups;
     private static boolean initialized = false;
+    OnUpdateRoster onUpdateRoster;
+    private boolean useGroups;
     private ContactListModel model;
     private int currentProtocol = 0;
     private int currPage;
 
     public VirtualContactList() {
-            model = new ContactListModel(10);
+        model = new ContactListModel(10);
         updateOption();
     }
 
@@ -54,30 +46,21 @@ public final class VirtualContactList {
             onUpdateRoster.updateBarProtocols();
     }
 
-    OnUpdateRoster onUpdateRoster;
-
     public void setOnUpdateRoster(OnUpdateRoster l) {
         onUpdateRoster = l;
-    }
-
-    public void setCurrPage(int currPage) {
-        this.currPage = currPage;
     }
 
     public int getCurrPage() {
         return currPage;
     }
 
+    public void setCurrPage(int currPage) {
+        this.currPage = currPage;
+    }
+
     public void putIntoQueue(Group group) {
         if (onUpdateRoster != null)
             onUpdateRoster.putIntoQueue(group);
-    }
-
-    public interface OnUpdateRoster {
-        void updateRoster();
-        void updateBarProtocols();
-        void putIntoQueue(Group g);
-        void setCurrentNode(TreeNode cItem);
     }
 
     private Protocol getProtocol(Group g) {
@@ -91,11 +74,11 @@ public final class VirtualContactList {
     }
 
     public void updateOption() {
-        useGroups = /*Options.getBoolean(Options.OPTION_USER_GROUPS)*/getCurrPage() == 0;
+        useGroups = Options.getBoolean(Options.OPTION_USER_GROUPS);
         if (!initialized) {
             initialized = true;
             ContactListModel oldModel = model;
-                model = new ContactListModel(10);
+            model = new ContactListModel(10);
             for (int i = 0; i < oldModel.getProtocolCount(); ++i) {
                 model.addProtocol(oldModel.getProtocol(i));
             }
@@ -123,25 +106,26 @@ public final class VirtualContactList {
         updateTree();
     }
 
-    public void setCurrProtocol(int currentProtocol) {
-        this.currentProtocol = currentProtocol;
-    }
-
     public int getCurrProtocol() {
         return currentProtocol;
     }
 
+    public void setCurrProtocol(int currentProtocol) {
+        this.currentProtocol = currentProtocol;
+    }
+
     public final Protocol getCurrentProtocol() {
-            Protocol p = model.getProtocol(getCurrProtocol());
-            if (model.getProtocolCount() == 0 || null == p) {
-                p = model.getProtocol(0);
-            }
-            return p;
+        Protocol p = model.getProtocol(getCurrProtocol());
+        if (model.getProtocolCount() == 0 || null == p) {
+            p = model.getProtocol(0);
+        }
+        return p;
     }
 
     public String getStatusMessage(Contact contact) {
         String message;
         Protocol protocol = model.getContactProtocol(contact);
+        if (protocol == null) return "";
         if (XStatusInfo.XSTATUS_NONE != contact.getXStatusIndex()) {
             message = contact.getXStatusText();
             if (!StringConvertor.isEmpty(message)) {
@@ -158,5 +142,15 @@ public final class VirtualContactList {
         }
         String status = protocol.getStatusInfo().getName(contact.getStatusIndex());
         return (status == null) ? "" : status;
+    }
+
+    public interface OnUpdateRoster {
+        void updateRoster();
+
+        void updateBarProtocols();
+
+        void putIntoQueue(Group g);
+
+        void setCurrentNode(TreeNode cItem);
     }
 }

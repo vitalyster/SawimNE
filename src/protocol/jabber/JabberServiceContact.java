@@ -6,6 +6,7 @@ package protocol.jabber;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.SubMenu;
+import ru.sawim.activities.SawimActivity;
 import sawim.Options;
 import sawim.chat.Chat;
 import sawim.chat.message.Message;
@@ -369,7 +370,7 @@ public class JabberServiceContact extends JabberContact {
             } else {
                 contactMenu.add(Menu.FIRST, CONFERENCE_CONNECT, 2, R.string.connect);
             }
-            if (!isOnline() || protocol.isConnected()) {//////
+            if (!isOnline()) {//////
                 contactMenu.add(Menu.FIRST, USER_MENU_USERS_LIST, 2, R.string.list_of_users);
             }
             contactMenu.add(Menu.FIRST, CONFERENCE_OPTIONS, 2, R.string.options);
@@ -398,7 +399,7 @@ public class JabberServiceContact extends JabberContact {
                 contactMenu.add(Menu.FIRST, USER_MENU_HISTORY, 2, R.string.history);
             }
         }
-        if (isOnline() && !isGate) {
+        if (isOnline()) {
             contactMenu.add(Menu.FIRST, USER_MENU_STATUSES, 2, R.string.user_statuses);
         }
         if (isPrivate) {
@@ -454,7 +455,7 @@ public class JabberServiceContact extends JabberContact {
             super.activate(p);
 
         } else if (isConference && p.isConnected()) {
-            new ContactMenu(p, this).doAction(CONFERENCE_CONNECT);
+            new ContactMenu(p, this).doAction(SawimActivity.getInstance(), CONFERENCE_CONNECT);
         }
     }
 

@@ -1,14 +1,10 @@
-
-
 package protocol;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.util.Log;
+import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
 import sawim.FileTransfer;
-import sawim.Sawim;
-import sawim.SawimUI;
 import sawim.chat.message.PlainMessage;
 import sawim.cl.ContactList;
 import sawim.comm.Util;
@@ -18,9 +14,7 @@ import sawim.history.HistoryStorageList;
 import sawim.ui.TextBoxListener;
 import sawim.util.JLocale;
 import protocol.jabber.Jabber;
-import ru.sawim.activities.SawimActivity;
 import ru.sawim.view.TextBoxView;
-
 import java.util.Vector;
 
 public class ContactMenu implements TextBoxListener {
@@ -37,7 +31,7 @@ public class ContactMenu implements TextBoxListener {
         contact.initContextMenu(protocol, menu);
     }
 
-    public void doAction(int cmd) {
+    public void doAction(FragmentActivity a, int cmd) {
         switch (cmd) {
             case Contact.USER_MENU_TRACK: 
                 new sawim.modules.tracking.TrackingForm(contact.getUserId()).activate();
@@ -50,7 +44,7 @@ public class ContactMenu implements TextBoxListener {
                 messageTextbox = new TextBoxView();
 		        messageTextbox.setTextBoxListener(this);
 	            messageTextbox.setString(contact.annotations);
-                messageTextbox.show(SawimActivity.getInstance().getSupportFragmentManager(), "message");
+                messageTextbox.show(a.getSupportFragmentManager(), "message");
 			    return;
 			}
                 
@@ -74,23 +68,32 @@ public class ContactMenu implements TextBoxListener {
                 break;
 
             case Contact.USER_MENU_FILE_TRANS:
-                new FileTransfer(protocol, contact).startFileTransfer();
+                new FileTransfer(a, protocol, contact).startFileTransfer();
                 break;
                 
             case Contact.USER_MENU_CAM_TRANS:
-                new FileTransfer(protocol, contact).startPhotoTransfer();
+                new FileTransfer(a, protocol, contact).startPhotoTransfer();
                 break;
 
             case Contact.USER_MENU_RENAME:
-                new ManageContactListForm(protocol, contact).showContactRename();
+                new ManageContactListForm(protocol, contact).showContactRename(a);
                 break;
 
-            case Contact.USER_MENU_HISTORY: 
-                showHistory();
+            case Contact.USER_MENU_HISTORY:
+                if (contact.hasHistory()) {
+                    HistoryStorage history;
+                    if (contact.hasChat()) {
+                        history = protocol.getChat(contact).getHistory();
+                    } else {
+                        history = HistoryStorage.getHistory(contact);
+                    }
+                    new HistoryStorageList().show(history);
+                    //ru.sawim.activities.SawimActivity.getInstance().showHistory(history);
+                }
                 break;
 
             case Contact.USER_MENU_MOVE:
-                new ManageContactListForm(protocol, contact).showContactMove();
+                new ManageContactListForm(protocol, contact).showContactMove(a);
                 break;
             
             case Contact.USER_MENU_USER_INFO:
@@ -103,7 +106,7 @@ public class ContactMenu implements TextBoxListener {
                 items[1] = JLocale.getString("admins");
                 items[2] = JLocale.getString("members");
                 items[3] = JLocale.getString("inban");
-                AlertDialog.Builder builder = new AlertDialog.Builder(SawimActivity.getInstance());
+                AlertDialog.Builder builder = new AlertDialog.Builder(a);
                 builder.setTitle(contact.getName());
                 builder.setItems(items, new DialogInterface.OnClickListener() {
                     @Override
@@ -171,19 +174,6 @@ public class ContactMenu implements TextBoxListener {
 			}
 		    messageTextbox.back();
 			return;
-        }
-    }
-    
-    private void showHistory() {
-        if (contact.hasHistory()) {
-            HistoryStorage history;
-            if (contact.hasChat()) {
-                history = protocol.getChat(contact).getHistory();
-            } else {
-                history = HistoryStorage.getHistory(contact);
-            }
-            new HistoryStorageList().show(history);
-            //ru.sawim.activities.SawimActivity.getInstance().showHistory(history);
         }
     }
 }

@@ -1,5 +1,3 @@
-
-
 package protocol;
 
 import DrawControls.icons.Icon;
@@ -33,7 +31,6 @@ import ru.sawim.activities.SawimActivity;
 import javax.microedition.rms.RecordStore;
 import java.io.*;
 import java.util.Vector;
-
 
 abstract public class Protocol {
     private static final int RECONNECT_COUNT = 20;
@@ -176,7 +173,7 @@ abstract public class Protocol {
 
     public final void sort() {
         synchronized (rosterLockObject) {
-            if (/*Options.getBoolean(Options.OPTION_USER_GROUPS)*/getContactList().getManager().getCurrPage() == 0) {
+            if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
                 Util.sort(getSortedGroups());
             } else {
                 Util.sort(getSortedContacts());
@@ -229,7 +226,6 @@ abstract public class Protocol {
     public final void setContactListAddition(Group group) {
         synchronized (rosterLockObject) {
             updateContacts(group);
-
             updateContacts(notInListGroup);
             Vector groupItems = group.getContacts();
             for (int i = 0; i < groupItems.size(); ++i) {
@@ -332,9 +328,7 @@ abstract public class Protocol {
             try {
                 RecordStore.deleteRecordStore(storage);
             } catch (Exception e) {
-
             }
-
             RecordStore cl = null;
             try {
                 cl = RecordStore.openRecordStore(storage, true);
@@ -467,14 +461,10 @@ abstract public class Protocol {
     }
 
     protected void s_removeContact(Contact contact) {
-    }
-
-    ;
+    };
 
     protected void s_removedContact(Contact contact) {
-    }
-
-    ;
+    };
 
     public final void removeContact(Contact contact) {
         if (contact.isTemp()) {
@@ -669,7 +659,7 @@ abstract public class Protocol {
             c.setOfflineStatus();
         }
         synchronized (rosterLockObject) {
-            if (/*Options.getBoolean(Options.OPTION_USER_GROUPS)*/getContactList().getManager().getCurrPage() == 0) {
+            if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
                 for (int i = groups.size() - 1; i >= 0; --i) {
                     getContactList().getManager().getModel().updateGroupData((Group) groups.elementAt(i));
                 }
@@ -788,13 +778,13 @@ abstract public class Protocol {
     }
 
     private void ui_updateGroup(Group group) {
-        //if (/*Options.getBoolean(Options.OPTION_USER_GROUPS)*/getContactList().getManager().getCurrPage() == 0) {
+        if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
             synchronized (rosterLockObject) {
                 getContactList().getManager().getModel().updateGroupData(group);
                 Util.sort(sortedGroups);
             }
             ui_updateCL(group);
-        //}
+        }
     }
 
     public final Group getNotInListGroup() {
@@ -1141,7 +1131,6 @@ abstract public class Protocol {
 
     public final void showException(SawimException e) {
         if (!Sawim.isPaused()) {
-            Sawim.unlockSawim();
             getContactList().activateWithMsg(getUserId() + "\n" + e.getMessage());
         }
     }
@@ -1234,10 +1223,7 @@ abstract public class Protocol {
                 } else if (Tracking.isTracking(id, Tracking.EVENT_ENTER) == Tracking.FALSE) {
                     Notify.getSound().playSoundNotification(Notify.isSound(Notify.NOTIFY_ONLINE), Notify.NOTIFY_ONLINE);
                 }
-
-
             }
-            //contact.showTopLine(getStatusInfo().getName(curr));
         }
     }
 

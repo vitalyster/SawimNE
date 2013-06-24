@@ -1,8 +1,7 @@
-
-
-
 package sawim.modules;
 
+import android.util.Log;
+import ru.sawim.SawimApplication;
 import sawim.Sawim;
 import sawim.Options;
 import sawim.cl.ContactList;
@@ -11,12 +10,12 @@ import protocol.Protocol;
 import protocol.StatusInfo;
 import protocol.XStatusInfo;
 
-
 public final class AutoAbsence {
     public static final AutoAbsence instance = new AutoAbsence();
 
     public AutoAbsence() {
         absence = false;
+        updateOptions();
         userActivity();
     }
 
@@ -24,6 +23,8 @@ public final class AutoAbsence {
     private Profile[] profiles;
     private long activityOutTime;
     private boolean absence;
+    private boolean use = SawimApplication.instance.useAbsence;
+    private int time;
 
     private void doAway() {
         if (absence) {
@@ -61,11 +62,6 @@ public final class AutoAbsence {
         if ((null == p) || !p.isConnected() || p.getStatusInfo().isAway(p.getProfile().statusIndex)) {
             return false;
         }
-        
-
-
-
-        
         return true;
     }
     private void doRestore() {
@@ -83,15 +79,12 @@ public final class AutoAbsence {
                     p.xstatusTitle = pr.xstatusTitle;
                     p.xstatusDescription = pr.xstatusDescription;
                 }
-                
+
                 protos[i].setOnlineStatus(pr.statusIndex, pr.statusMessage);
             }
         }
     }
 
-    private boolean isBlockOn() {
-        return Options.getBoolean(Options.OPTION_AA_BLOCK);
-    }
     public final void updateTime() {
         if (!absence) {
             try {
@@ -108,22 +101,25 @@ public final class AutoAbsence {
         }
     }
     public final void away() {
-        if (isBlockOn()) {
+        if (0 < time && !use) {
+            use = false;
             doAway();
         }
     }
     public final void online() {
-        if (isBlockOn()) {
+        if (0 < time && !use) {
+            use = true;
             doRestore();
         }
     }
 
     public final void updateOptions() {
+        time = Options.getInt(Options.OPTION_AA_TIME);
     }
     public final void userActivity() {
         try {
-            if (!Sawim.isLocked() && !Sawim.isPaused()) {
-                int init = Options.getInt(Options.OPTION_AA_TIME) * 60; 
+            if (!Sawim.isPaused()) {
+                int init = time * 60;
                 if (0 < init) {
                     activityOutTime = Sawim.getCurrentGmtTime() + init;
                 } else {
@@ -137,5 +133,3 @@ public final class AutoAbsence {
         }
     }
 }
-
-

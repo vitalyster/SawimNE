@@ -4,7 +4,7 @@
         android:id="@+id/widget35"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="2dp">
+        android:padding="5dp">
     <ImageView
             android:id="@+id/first_image"
             android:layout_width="wrap_content"
@@ -20,6 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:padding="5dp"
             android:layout_weight="11">
         <TextView
                 android:id="@+id/item_name"
@@ -29,8 +30,7 @@
                 android:scrollHorizontally="true"
                 android:ellipsize="end"
                 android:text="TextView"
-                android:textSize="20sp"
-                android:textStyle="bold"/>
+                android:textSize="20sp"/>
     </LinearLayout>
     <ImageView
             android:layout_width="wrap_content"

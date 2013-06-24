@@ -13,12 +13,16 @@ import android.graphics.Matrix;
 import android.net.Uri;
 import android.preference.PreferenceManager;
 import android.util.DisplayMetrics;
+import sawim.chat.MessData;
+import sawim.chat.message.Message;
+import sawim.chat.message.PlainMessage;
 import sawim.ui.base.Scheme;
 import ru.sawim.activities.SawimActivity;
 
 import javax.microedition.io.ConnectionNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.

@@ -1,7 +1,6 @@
 package ru.sawim.models.form;
 
 import DrawControls.icons.Image;
-import DrawControls.icons.ImageList;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import ru.sawim.General;
@@ -11,7 +10,6 @@ import sawim.modules.DebugLog;
 import sawim.util.JLocale;
 import ru.sawim.activities.FormActivity;
 import ru.sawim.activities.SawimActivity;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,6 +61,10 @@ public class Forms {
 
     public static Forms getInstance() {
         return instance;
+    }
+
+    public void setCaption(String caption) {
+        this.caption = caption;
     }
 
     public interface OnUpdateForm {
@@ -186,10 +188,6 @@ public class Forms {
 
     public void addLink(int controlId, String text) {
         add(create(controlId, CONTROL_LINK, null, text));
-    }
-
-    public void addLatinTextField(int controlId, String label, String text) {
-        addTextField_(controlId, label, text);
     }
 
     public void addTextField(int controlId, String label, String text) {

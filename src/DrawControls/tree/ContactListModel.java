@@ -1,7 +1,6 @@
-
-
 package DrawControls.tree;
 
+import sawim.Options;
 import sawim.comm.Util;
 import protocol.Contact;
 import protocol.Group;
@@ -51,7 +50,7 @@ public class ContactListModel {
 
     void updateOptions(VirtualContactList vcl) {
         boolean groups = useGroups;
-        useGroups = true;//*Options.getBoolean(Options.OPTION_USER_GROUPS)*/vcl.getCurrPage() == 0;
+        useGroups = Options.getBoolean(Options.OPTION_USER_GROUPS);
         hideOffline = /*Options.getBoolean(Options.OPTION_CL_HIDE_OFFLINE)*/vcl.getCurrPage() == 1;
         if (groups && !useGroups) {
             sort();
@@ -90,7 +89,7 @@ public class ContactListModel {
         }
     }
 
-    public void rebuildFlatItemsWG(Protocol p, List<TreeNode> drawItems) {
+    private void rebuildFlatItemsWG(Protocol p, List<TreeNode> drawItems) {
         Vector contacts;
         Group g;
         Contact c;
@@ -134,7 +133,7 @@ public class ContactListModel {
         }
     }
 
-    public void rebuildFlatItemsWOG(Protocol p, List<TreeNode> drawItems) {
+    private void rebuildFlatItemsWOG(Protocol p, List<TreeNode> drawItems) {
         boolean all = !hideOffline;
         Contact c;
         Vector contacts = p.getSortedContacts();

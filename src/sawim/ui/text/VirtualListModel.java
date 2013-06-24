@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.graphics.Bitmap;
+import ru.sawim.activities.VirtualListActivity;
 import ru.sawim.models.form.VirtualListItem;
 import sawim.comm.StringConvertor;
 import sawim.ui.base.Scheme;
@@ -21,8 +22,17 @@ public final class VirtualListModel {
         elements = new ArrayList<VirtualListItem>();
     }
 
-    public final void addPar(VirtualListItem item) {
-        elements.add(item);
+    public final void addPar(final VirtualListItem item) {
+        if (VirtualListActivity.getInstance() == null) {
+            elements.add(item);
+        } else {
+            VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    elements.add(item);
+                }
+            });
+        }
     }
 
     public final VirtualListItem createNewParser(boolean itemSelectable) {

@@ -3,7 +3,7 @@
         android:id="@+id/widget35"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:padding="2dp"
+        android:padding="7dp"
         xmlns:android="http://schemas.android.com/apk/res/android">
     <ImageView
             android:id="@+id/image"
@@ -15,6 +15,7 @@
             android:id="@+id/widget45"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:padding="7dp"
             android:orientation="vertical">
         <TextView
                 android:id="@+id/item_name"
@@ -24,8 +25,7 @@
                 android:scrollHorizontally="false"
                 android:ellipsize="end"
                 android:text="TextView"
-                android:textSize="20sp"
-                android:textStyle="bold"/>
+                android:textSize="20sp"/>
         <TextView android:id="@+id/contactId"
                   android:layout_width="0dp"
                   android:layout_height="0dp"

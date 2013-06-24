@@ -14,12 +14,6 @@ import android.support.v4.view.ViewPager;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-import sawim.chat.ChatHistory;
-import sawim.cl.ContactList;
-import sawim.comm.Util;
-import sawim.forms.ManageContactListForm;
-import sawim.modules.DebugLog;
-import sawim.ui.base.Scheme;
 import protocol.Contact;
 import protocol.ContactMenu;
 import protocol.Group;
@@ -31,6 +25,13 @@ import ru.sawim.activities.ChatActivity;
 import ru.sawim.models.ContactsAdapter;
 import ru.sawim.models.CustomPagerAdapter;
 import ru.sawim.models.RosterAdapter;
+import sawim.chat.Chat;
+import sawim.chat.ChatHistory;
+import sawim.cl.ContactList;
+import sawim.comm.Util;
+import sawim.forms.ManageContactListForm;
+import sawim.modules.DebugLog;
+import sawim.ui.base.Scheme;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ import java.util.Vector;
  * Time: 19:58
  * To change this template use File | Settings | File Templates.
  */
-public class RosterView extends Fragment implements View.OnClickListener, ListView.OnItemClickListener, VirtualContactList.OnUpdateRoster {
+public class RosterView extends Fragment implements View.OnClickListener, ListView.OnItemClickListener, VirtualContactList.OnUpdateRoster, View.OnLongClickListener {
 
     private LinearLayout rosterViewLayout;
     private LinearLayout topLinearLayout;
@@ -73,7 +74,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         owner = general.getManager();
         if (owner == null) return;
         owner.setOnUpdateRoster(this);
-        if (general.getCurrProtocol() == null) {
+        if (owner.getModel().getProtocolCount() == 0) {
             startActivity(new Intent(currentActivity, AccountsListActivity.class));
             return;
         }
@@ -168,6 +169,13 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         return getSafeNode(getCurrItem());
     }
 
+    @Override
+    public void setCurrentNode(TreeNode node) {
+        if (null != node) {
+            currentNode = node;
+        }
+    }
+
     public TreeNode getSafeNode(int index) {
         if ((index < items.size()) && (index >= 0)) {
             return items.get(index);
@@ -179,13 +187,6 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         setCurrentNode(getCurrentNode());
         node.setExpandFlag(value);
         updateRoster();
-    }
-
-    @Override
-    public void setCurrentNode(TreeNode node) {
-        if (null != node) {
-            currentNode = node;
-        }
     }
 
     private void rebuildRoster(int pos) {
@@ -232,13 +233,25 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+    }
+
+    @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
         ChatView viewer = (ChatView) getActivity().getSupportFragmentManager()
                 .findFragmentById(R.id.chat_fragment);
         Object item = adaptersPages.get(viewPager.getCurrentItem()).getItem(position);
         if (item instanceof Contact) {
-            Contact c = ((Contact) item);
-            Protocol p = c.getProtocol();
+            Protocol p;
+            Contact c;
+            if (viewPager.getCurrentItem() == ContactsAdapter.OPEN_CHATS) {
+                c = ChatHistory.instance.contactAt(position);
+                p = c.getProtocol();
+            } else {
+                c = ((Contact) item);
+                p = general.getCurrProtocol();
+            }
             c.activate(p);
             if (!isInLayout()) return;
             if (viewer == null || !viewer.isInLayout()) {
@@ -247,8 +260,12 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
                 intent.putExtra("contact_id", c.getUserId());
                 getActivity().startActivity(intent);
             } else {
+                Chat chat = viewer.getCurrentChat();
+                viewer.pause(chat);
+                viewer.destroy(chat);
                 if (c != null) {
                     viewer.openChat(p, c);
+                    viewer.resume(viewer.getCurrentChat());
                 }
             }
         } else if (item instanceof Group) {
@@ -299,7 +316,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
             getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    new ContactMenu(c.getProtocol(), c).doAction(item.getItemId());
+                    new ContactMenu(c.getProtocol(), c).doAction(getActivity(), item.getItemId());
                 }
             });
             return true;
@@ -311,6 +328,12 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
     public void onClick(View view) {
         owner.setCurrProtocol(view.getId());
         Update();
+    }
+
+    @Override
+    public boolean onLongClick(View view) {
+        new StatusesView(StatusesView.ADAPTER_STATUS).show(getActivity().getSupportFragmentManager(), "change-status");
+        return false;
     }
 
     private void updateProgressBar() {
@@ -339,47 +362,46 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
 
     @Override
     public void updateBarProtocols() {
+        final int protCount = owner.getModel().getProtocolCount();
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 updateProgressBar();
-                topLinearLayout.removeAllViews();
-                for (int j = 0; j < owner.getModel().getProtocolCount(); j++) {
-                    Protocol protocol = owner.getModel().getProtocol(j);
-                    ImageButton imageBarButtons = new ImageButton(getActivity());
-                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(58, LinearLayout.LayoutParams.MATCH_PARENT);
-                    lp.gravity = Gravity.CENTER;
-                    imageBarButtons.setLayoutParams(lp);
-                    if (j == owner.getCurrProtocol())
-                        imageBarButtons.setBackgroundColor(General.getColorWithAlpha(Scheme.THEME_BACKGROUND));
-                    imageBarButtons.setImageBitmap(General.iconToBitmap(protocol.getCurrentStatusIcon()));
-                    imageBarButtons.setOnClickListener(RosterView.this);
-                    imageBarButtons.setId(j);
-                    Icon messageIcon = ChatHistory.instance.getUnreadMessageIcon(protocol);
-                    if (null != messageIcon)
-                        imageBarButtons.setImageBitmap(General.iconToBitmap(messageIcon));
-                    topLinearLayout.addView(imageBarButtons, j);
+                if (protCount > 1) {
+                    topLinearLayout.removeAllViews();
+                    for (int j = 0; j < protCount; j++) {
+                        Protocol protocol = owner.getModel().getProtocol(j);
+                        ImageButton imageBarButtons = new ImageButton(getActivity());
+                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+                        lp.gravity = Gravity.CENTER;
+                        imageBarButtons.setLayoutParams(lp);
+                        if (j == owner.getCurrProtocol())
+                            imageBarButtons.setBackgroundColor(General.getColorWithAlpha(Scheme.THEME_BACKGROUND));
+                        imageBarButtons.setImageBitmap(General.iconToBitmap(protocol.getCurrentStatusIcon()));
+                        imageBarButtons.setOnClickListener(RosterView.this);
+                        imageBarButtons.setOnLongClickListener(RosterView.this);
+                        imageBarButtons.setId(j);
+                        Icon messageIcon = ChatHistory.instance.getUnreadMessageIcon(protocol);
+                        if (null != messageIcon)
+                            imageBarButtons.setImageBitmap(General.iconToBitmap(messageIcon));
+                        topLinearLayout.addView(imageBarButtons, j);
+                    }
+                } else {
+                    rosterBarLayout.setVisibility(LinearLayout.GONE);
+                    topLinearLayout.setVisibility(LinearLayout.GONE);
                 }
             }
         });
     }
 
     private void updatePage(final int currPage) {
-        if (currPage == ContactsAdapter.ALL_CONTACTS) {
-
-        } else if (currPage == ContactsAdapter.ONLINE_CONTACTS) {
+        if (currPage == ContactsAdapter.ONLINE_CONTACTS) {
             onlineRosterAdapter.clear();
             Vector contacts = general.getCurrProtocol().getSortedContacts();
             for (int i = 0; i < contacts.size(); ++i) {
                 Contact c = (Contact) contacts.get(i);
                 if (c.isVisibleInContactList())
                     onlineRosterAdapter.setItems(c);
-            }
-        } else if (currPage == ContactsAdapter.OPEN_CHATS) {
-            chatsRosterAdapter.clear();
-            ChatHistory chats = ChatHistory.instance;
-            for (int i = 0; i < chats.getTotal(); ++i) {
-                chatsRosterAdapter.setItems(chats.contactAt(i));
             }
         }
         if (adaptersPages != null && adaptersPages.size() > 0)

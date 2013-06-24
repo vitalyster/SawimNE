@@ -46,6 +46,7 @@ import sawim.OptionsForm;
 import sawim.chat.ChatHistory;
 import sawim.cl.ContactList;
 import sawim.forms.ManageContactListForm;
+import sawim.forms.SmsForm;
 import sawim.history.HistoryStorage;
 import sawim.modules.Notify;
 import sawim.modules.photo.PhotoListener;
@@ -165,6 +166,18 @@ public class SawimActivity extends FragmentActivity {
         super.onDestroy();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        Sawim.maximize();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        Sawim.minimize();
+    }
+
     private void quit() {
         unbindService(serviceConnection);
         unregisterReceiver(networkStateReceiver);
@@ -186,16 +199,17 @@ public class SawimActivity extends FragmentActivity {
     private static final int MENU_STATUS = 1;
     private static final int MENU_XSTATUS = 2;
     private static final int MENU_PRIVATE_STATUS = 3;
-    private static final int MENU_SOUND = 4;
-    private static final int MENU_OPTIONS = 5;
-    private static final int MENU_OPTIONS_THEMES = 6;
-    private static final int MENU_QUIT = 7;//OptionsForm
+    private static final int MENU_SEND_SMS = 4;
+    private static final int MENU_SOUND = 5;
+    private static final int MENU_OPTIONS = 6;
+    private static final int MENU_QUIT = 13;//OptionsForm
     private static final int MENU_MORE = 14;
     private static final int MENU_DISCO = 15;
     private static final int MENU_NOTES = 16;
     private static final int MENU_GROUPS = 17;
     private static final int MENU_MYSELF = 18;
     private static final int MENU_MICROBLOG = 19;//ManageContactListForm
+
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         menu.clear();
@@ -208,6 +222,14 @@ public class SawimActivity extends FragmentActivity {
         if (p != null) {
             if ((p instanceof Icq) || (p instanceof Mrim))
                 menu.add(Menu.NONE, MENU_PRIVATE_STATUS, Menu.NONE, R.string.private_status);
+
+            int count = ContactList.getInstance().getManager().getModel().getProtocolCount();
+            for (int i = 0; i < count; ++i) {
+                Protocol pr = ContactList.getInstance().getManager().getModel().getProtocol(i);
+                if ((pr instanceof Mrim) && pr.isConnected()) {
+                    menu.add(Menu.NONE, MENU_SEND_SMS, Menu.NONE, R.string.send_sms);
+                }
+            }
         }
         if (p != null)
             if (p.isConnected()) {
@@ -256,6 +278,9 @@ public class SawimActivity extends FragmentActivity {
             case MENU_PRIVATE_STATUS:
                 new StatusesView(StatusesView.ADAPTER_PRIVATESTATUS).show(getSupportFragmentManager(), "change-private-status");
                 break;
+            case MENU_SEND_SMS:
+                new SmsForm(null, null).show();
+                break;
             case MENU_SOUND:
                 Notify.getSound().changeSoundMode(false);
                 break;
@@ -280,19 +305,19 @@ public class SawimActivity extends FragmentActivity {
                 startActivity(new Intent(this, AccountsListActivity.class));
                 break;
             case OptionsForm.OPTIONS_INTERFACE:
-                new OptionsForm().select(OptionsForm.OPTIONS_INTERFACE);
+                new OptionsForm().select(item.getTitle(), OptionsForm.OPTIONS_INTERFACE);
                 break;
             case OptionsForm.OPTIONS_SIGNALING:
-                new OptionsForm().select(OptionsForm.OPTIONS_SIGNALING);
+                new OptionsForm().select(item.getTitle(), OptionsForm.OPTIONS_SIGNALING);
                 break;
             case OptionsForm.OPTIONS_ANTISPAM:
-                new OptionsForm().select(OptionsForm.OPTIONS_ANTISPAM);
+                new OptionsForm().select(item.getTitle(), OptionsForm.OPTIONS_ANTISPAM);
                 break;
             case OptionsForm.OPTIONS_ABSENCE:
-                new OptionsForm().select(OptionsForm.OPTIONS_ABSENCE);
+                new OptionsForm().select(item.getTitle(), OptionsForm.OPTIONS_ABSENCE);
                 break;
             case OptionsForm.OPTIONS_ANSWERER:
-                new OptionsForm().select(OptionsForm.OPTIONS_ANSWERER);
+                new OptionsForm().select(item.getTitle(), OptionsForm.OPTIONS_ANSWERER);
                 break;
 
             case MENU_QUIT:

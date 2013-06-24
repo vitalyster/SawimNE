@@ -1,13 +1,14 @@
-
-
 package protocol;
 
 import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
 import DrawControls.tree.TreeNode;
+import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.SubMenu;
+import ru.sawim.activities.FormActivity;
+import ru.sawim.view.FileProgressView;
 import sawim.FileTransfer;
 import sawim.Sawim;
 import sawim.Options;
@@ -139,8 +140,17 @@ abstract public class Contact implements TreeNode, Sortable {
         ContactList.getInstance().setCurrentContact(this);
     }
 
-    protected final boolean isCurrent() {
-        return this == getProtocol().getContactList().getCurrentContact();
+    FileProgressView fileProgressView;
+    public void addFileProgress() {
+        fileProgressView = new FileProgressView();
+    }
+
+    public void changeFileProgress(int percent, String caption, String text) {
+        fileProgressView.changeFileProgress(percent, caption, text);
+    }
+
+    public void showFileProgress(FragmentActivity activity) {
+        fileProgressView.show(activity.getSupportFragmentManager(), "file");
     }
 
     public static final byte CONTACT_NO_AUTH       = 1 << 1; 
@@ -217,9 +227,9 @@ abstract public class Contact implements TreeNode, Sortable {
             String ignoreList = inIgnoreList()
                     ? "rem_ignore_list": "add_ignore_list";
 
-            menu.addSubMenu(Menu.FIRST, USER_MENU_PS_VISIBLE, 2, visibleList);
-            menu.addSubMenu(Menu.FIRST, USER_MENU_PS_INVISIBLE, 2, invisibleList);
-            menu.addSubMenu(Menu.FIRST, USER_MENU_PS_IGNORE, 2, ignoreList);
+            menu.add(Menu.FIRST, USER_MENU_PS_VISIBLE, 2, visibleList);
+            menu.add(Menu.FIRST, USER_MENU_PS_INVISIBLE, 2, invisibleList);
+            menu.add(Menu.FIRST, USER_MENU_PS_IGNORE, 2, ignoreList);
         }
     }
 
@@ -252,9 +262,6 @@ abstract public class Contact implements TreeNode, Sortable {
         return Scheme.THEME_CONTACT_OFFLINE;
     }
 
-	public StatusInfo getStatusIcon() {
-	    return getProtocol().getStatusInfo();
-	}
     public void getLeftIcons(Icon[] lIcons) {
         if (isTyping()) {
             lIcons[0] = Message.msgIcons.iconAt(Message.ICON_TYPE);
@@ -283,6 +290,7 @@ abstract public class Contact implements TreeNode, Sortable {
         }
         lIcons[4] = serverListsIcons.iconAt(privacyList);
     }
+
     public final void getRightIcons(Icon[] icons) {
         Protocol protocol = getProtocol();
         ClientInfo info = (null != protocol) ? protocol.clientInfo : null;
@@ -290,6 +298,7 @@ abstract public class Contact implements TreeNode, Sortable {
 		String id = getUserId();
         icons[1] = (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE)?Tracking.getTrackIcon(id):null;
     }
+
     public final String getText() {
         return name;
     }
@@ -332,20 +341,16 @@ abstract public class Contact implements TreeNode, Sortable {
     }
 
     public static final int USER_MENU_REQU_AUTH        = 1004;
-
     public static final int USER_MENU_USER_REMOVE      = 1007;
     public static final int USER_MENU_RENAME           = 1009;
-    
     public static final int USER_MENU_USER_INFO        = 1012;
     public static final int USER_MENU_MOVE             = 1015;
     public static final int USER_MENU_STATUSES         = 1016;
-    public static final int USER_MENU_LIST_OPERATION   = 1017;
     public static final int USER_MENU_HISTORY          = 1025;
     public static final int USER_MENU_ADD_USER         = 1018;
 
     public static final int USER_MENU_GRANT_AUTH       = 1021;
     public static final int USER_MENU_DENY_AUTH        = 1022;
-
 
     public static final int USER_MENU_PS_VISIBLE       = 1034;
     public static final int USER_MENU_PS_INVISIBLE     = 1035;
@@ -362,11 +367,7 @@ abstract public class Contact implements TreeNode, Sortable {
 	public static final int USER_MENU_TRACK_CONF = 1045;
 	
 	public static final int USER_MENU_ANNOTATION  = 1043;
-	public static final int USER_MENU_DEL_ANNOTATION  = 1044;
-
     public static final int CONFERENCE_DISCONNECT = 1040;
-	public static final int CONFERENCE_CONNECT = 1041;
-    public static final int USER_MENU_COPY_UID = 1006;
 
     protected abstract void initManageContactMenu(Protocol protocol, SubMenu menu);
     protected void initContextMenu(Protocol protocol, ContextMenu contactMenu) {
@@ -376,20 +377,15 @@ abstract public class Contact implements TreeNode, Sortable {
     public void addChatMenuItems(ContextMenu model) {
     }
 
-    public final void getContextMenu(Protocol p, ContextMenu menu) {
-        new ContactMenu(p, this).getContextMenu(menu);
-    }
     protected final void addChatItems(ContextMenu menu) {
         if (isSingleUserContact()) {
             if (!isAuth()) {
                 menu.add(Menu.FIRST, USER_MENU_REQU_AUTH, 2, R.string.requauth);
             }
         }
-        
         if (!isTemp() && !isConference()) {
             menu.add(Menu.FIRST, USER_MENU_TRACK, 2, R.string.extra_settings);
 		}
-		
         if (isSingleUserContact() || isOnline()) {
             if (sawim.modules.fs.FileSystem.isSupported()) {
                 menu.add(Menu.FIRST, USER_MENU_FILE_TRANS, 2, R.string.ft_name);

@@ -4,6 +4,7 @@ import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
 import DrawControls.tree.VirtualContactList;
 import android.graphics.Typeface;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -71,7 +72,6 @@ public class ViewHolderRoster {
         else
             itemName.setText(item.getText() + " (" + item.subcontactsS() + ")");
         itemName.setTextColor(General.getColor(item.getTextTheme()));
-        itemName.setTypeface(item.hasChat() ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
 
         TextView itemStausText = getItemDescriptionText();
         itemStausText.setVisibility(TextView.VISIBLE);
