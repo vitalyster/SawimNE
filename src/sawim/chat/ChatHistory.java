@@ -20,6 +20,7 @@ public final class ChatHistory {
     public final Vector historyTable = new Vector();
     public static final ChatHistory instance = new ChatHistory();
     private final Icon[] leftIcons = new Icon[7];
+    private Vector chats = new Vector();
 
     private ChatHistory() {
         //super(JLocale.getString("chats"));
@@ -35,6 +36,14 @@ public final class ChatHistory {
 
     public Contact contactAt(int index) {
         return chatAt(index).getContact();
+    }
+
+    public Vector chats() {
+        chats.clear();
+        for (int i = 0; i < historyTable.size(); i++) {
+            chats.addElement(chatAt(i).getContact());
+        }
+        return chats;
     }
 
     public String[] vectorToArray() {
@@ -144,7 +153,7 @@ public final class ChatHistory {
             }
         }
 
-        if (SawimUI.execHotKey(null == chat ? null : chat.getProtocol(),
+        if (Clipboard.execHotKey(null == chat ? null : chat.getProtocol(),
                 null == chat ? null : chat.getContact(), keyCode, type)) {
             return;
         }
@@ -156,12 +165,6 @@ public final class ChatHistory {
         if (-1 == Util.getIndex(historyTable, item)) {
             historyTable.addElement(item);
             item.getContact().updateChatState(item);
-            try {
-                Icon[] icons = new Icon[7];
-                item.getContact().getLeftIcons(icons);
-                //itemHeight = Math.max(itemHeight, GraphicsEx.getMaxImagesHeight(icons));
-            } catch (Exception ignored) {
-            }
         }
     }
 
@@ -191,7 +194,7 @@ public final class ChatHistory {
     /*private void removeChat(Chat chat) {
         if (null != chat) {
             clearChat(chat);
-            //if (Sawim.getSawim().getDisplay().remove(chat)) {
+            //if (General.getSawim().getDisplay().remove(chat)) {
             //    ContactList.getInstance()._setActiveContact(null);
             //}
             //setCurrentItemIndex(getCurrItem());
@@ -422,4 +425,3 @@ public final class ChatHistory {
         s.delete();
     }
 }
-

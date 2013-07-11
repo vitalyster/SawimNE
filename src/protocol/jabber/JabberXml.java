@@ -1,8 +1,6 @@
-
-
 package protocol.jabber;
 
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.SawimException;
 import sawim.Options;
 import sawim.chat.message.PlainMessage;
@@ -12,6 +10,7 @@ import sawim.comm.MD5;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.modules.DebugLog;
+import sawim.modules.MagicEye;
 import sawim.search.UserInfo;
 import sawim.util.JLocale;
 import protocol.*;
@@ -728,7 +727,6 @@ public final class JabberXml extends ClientConnection {
 					uslist.setAffiliation(affiliation);
                     uslist.addItem(reasone, jid);
                 }
-                uslist.update();
                 return;
             } else if ("jabber:iq:register".equals(xmlns)) {
                 if ((null != jabberForm) && jabberForm.getId().equals(id)) {
@@ -791,31 +789,29 @@ public final class JabberXml extends ClientConnection {
                     return;
                 }
                 String platform = Options.getBoolean(Options.OPTION_SHOW_PLATFORM) ? ""
-					: Util.xmlEscape(sawim.Sawim.PHONE);
+					: Util.xmlEscape(General.PHONE);
                 if (IQ_TYPE_GET == iqType) {
                     putPacketIntoQueue("<iq type='result' to='"
                             + Util.xmlEscape(from) + "' id='" + Util.xmlEscape(id) + "'>"
                             + "<query xmlns='jabber:iq:version'><name>"
-                            + Util.xmlEscape(sawim.Sawim.NAME)
+                            + Util.xmlEscape(General.NAME)
                             + "</name><version>"
-                            + Util.xmlEscape(sawim.Sawim.VERSION)
+                            + Util.xmlEscape(General.VERSION)
                             + "</version><os>"
                             + platform
                             + "</os></query></iq>");
                     
                     String jid = Jid.isConference(from) ? from : Jid.getBareJid(from);
-                    //MagicEye.addAction(jabber, jid, "get_version");
-                    
+                    MagicEye.addAction(jabber, jid, "get_version");
                 }
                 return;
 
             } else if ("jabber:iq:last".equals(xmlns)) {
                 if (IQ_TYPE_GET == iqType) {
-                    
                     String jid = Jid.isConference(from) ? from : Jid.getBareJid(from);
-                    //MagicEye.addAction(jabber, jid, "last_activity_request");
+                    MagicEye.addAction(jabber, jid, "last_activity_request");
                     
-                    long time = Sawim.getCurrentGmtTime() - jabber.getLastStatusChangeTime();
+                    long time = General.getCurrentGmtTime() - jabber.getLastStatusChangeTime();
                     putPacketIntoQueue("<iq type='result' to='" + Util.xmlEscape(from)
                             + "' id='" + Util.xmlEscape(id) + "'>"
                             + "<query xmlns='jabber:iq:last' seconds='"
@@ -843,7 +839,7 @@ public final class JabberXml extends ClientConnection {
                 return;
             }
             String jid = Jid.isConference(from) ? from : Jid.getBareJid(from);
-            //MagicEye.addAction(jabber, jid, "get_time");
+            MagicEye.addAction(jabber, jid, "get_time");
             
             int gmtOffset = Options.getInt(Options.OPTION_GMT_OFFSET);
             putPacketIntoQueue("<iq type='result' to='" + Util.xmlEscape(from)
@@ -851,7 +847,7 @@ public final class JabberXml extends ClientConnection {
                     + "<time xmlns='urn:xmpp:time'><tzo>"
                     + (0 <= gmtOffset ? "+" : "-") + Util.makeTwo(Math.abs(gmtOffset)) + ":00"
                     + "</tzo><utc>"
-                    + Util.getUtcDateString(Sawim.getCurrentGmtTime())
+                    + Util.getUtcDateString(General.getCurrentGmtTime())
                     + "</utc></time></iq>");
             return;
         } else if (("p" + "ing").equals(queryName)) {
@@ -909,7 +905,6 @@ public final class JabberXml extends ClientConnection {
 			if (text == null) text = "";
             _notes.addNote(title, tags, text);
         }
-        _notes.update();
     }
     void saveMirandaNotes(String storage) {
         StringBuffer xml = new StringBuffer();
@@ -1222,7 +1217,9 @@ public final class JabberXml extends ClientConnection {
                     conf.setRealJid(fromRes, Jid.getBareJid(realJid));
                 }
                 contact.setClient(fromRes, x.getFirstNodeAttribute("c", S_NODE));
-			    conf.presence(fromRes, code, StringConvertor.notNull(newNick));
+                if (303 == code) {
+                    conf.addPresence(getJabber(), fromRes, ": " + JLocale.getString("change_nick") + " " + StringConvertor.notNull(newNick));
+                }
             } else {
                 conf.nickOffline(getJabber(), fromRes, code, StringConvertor.notNull(reasone), StringConvertor.notNull(statusString));
             }
@@ -1580,7 +1577,7 @@ public final class JabberXml extends ClientConnection {
 
         final String date = getDate(msg);
         final boolean isOnlineMessage = (null == date);
-        long time = isOnlineMessage ? Sawim.getCurrentGmtTime() : Util.createGmtDate(date);
+        long time = isOnlineMessage ? General.getCurrentGmtTime() : Util.createGmtDate(date);
         final PlainMessage message = new PlainMessage(from, getJabber(), time, text, !isOnlineMessage);
 
         if (null == c) {
@@ -1641,7 +1638,7 @@ public final class JabberXml extends ClientConnection {
         }
 
         String date = getDate(msg);
-        long time = (null == date) ? Sawim.getCurrentGmtTime() : Util.createGmtDate(date);
+        long time = (null == date) ? General.getCurrentGmtTime() : Util.createGmtDate(date);
         PlainMessage message = new PlainMessage(to, getJabber(), time, text, false);
         if (null != nick) {
             message.setName(('@' == nick.charAt(0)) ? nick.substring(1) : nick);
@@ -2246,7 +2243,7 @@ public final class JabberXml extends ClientConnection {
             }
             long time = conf.hasChat() ? getJabber().getChat(conf).getLastMessageTime() : 0;
 			
-            if (0 != time) xNode += "<history maxstanzas='20' seconds='" + (Sawim.getCurrentGmtTime() - time) + "'/>";
+            if (0 != time) xNode += "<history maxstanzas='20' seconds='" + (General.getCurrentGmtTime() - time) + "'/>";
             
             if (!StringConvertor.isEmpty(xNode)) {
                 xml += "<x xmlns='http://jabber.org/protocol/muc'>" + xNode + "</x>";

@@ -1,17 +1,19 @@
-
-
-
 package DrawControls.tree;
 
-import DrawControls.icons.Icon;
 
+public abstract class TreeNode {
+    public static final int GROUP = 0;
+    public static final int CONTACT = 1;
 
-public interface TreeNode {
-    String getText();
+    protected abstract String getText();
 
-    void getLeftIcons(Icon[] icons);
+    public boolean isGroup() {
+        return getType() == GROUP;
+    }
 
-    void getRightIcons(Icon[] icons);
+    public boolean isContact() {
+        return getType() == CONTACT;
+    }
+
+    protected abstract int getType();
 }
-
-

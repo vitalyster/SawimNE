@@ -3,6 +3,8 @@ package ru.sawim.models.form;
 import DrawControls.icons.Image;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 import ru.sawim.General;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
@@ -22,7 +24,7 @@ import java.util.List;
  */
 public class Forms {
 
-    public List<Control> controls;
+    public List<Control> controls = new ArrayList<Control>();
     public static final byte CONTROL_TEXT = 0;
     public static final byte CONTROL_INPUT = 1;
     public static final byte CONTROL_CHECKBOX = 2;
@@ -35,15 +37,23 @@ public class Forms {
     private OnBackPressed backPressedListener;
     private ControlStateListener controlListener;
     public CharSequence caption;
-    private static final Forms instance = new Forms();
+    private static Forms instance;
 
     public void back() {
         updateFormListener.back();
         destroy();
     }
 
+    public void backForm() {
+        updateFormListener.back();
+    }
+
     public void show() {
         SawimActivity.getInstance().startActivity(new Intent(SawimActivity.getInstance(), FormActivity.class));
+    }
+
+    public void show(FragmentActivity a) {
+        a.startActivity(new Intent(a, FormActivity.class));
     }
 
     public void invalidate() {
@@ -98,10 +108,10 @@ public class Forms {
         public Bitmap image;
     }
 
-    public void init(String caption_, FormListener l) {
-        controls = new ArrayList<Control>();
+    public Forms(String caption_, FormListener l) {
         caption = JLocale.getString(caption_);
         formListener = l;
+		instance = this;
     }
 
     public void setControlStateListener(ControlStateListener l) {
@@ -110,6 +120,10 @@ public class Forms {
 
     public void destroy() {
         clearForm();
+        clearListeners();
+    }
+
+    public void clearListeners() {
         formListener = null;
         controlListener = null;
         updateFormListener = null;
@@ -166,6 +180,13 @@ public class Forms {
     public void addCheckBox(int controlId, String label, boolean selected) {
         label = (null == label) ? " " : label;
         Control c = create(controlId, CONTROL_CHECKBOX, null, JLocale.getString(label));
+        c.selected = selected;
+        add(c);
+    }
+
+    public void addCheckBox_(int controlId, String label, boolean selected) {
+        label = (null == label) ? " " : label;
+        Control c = create(controlId, CONTROL_CHECKBOX, null, label);
         c.selected = selected;
         add(c);
     }
@@ -269,6 +290,7 @@ public class Forms {
     }
     public int getSelectorValue(int controlId) {
         try {
+            Log.e("Forms", ""+controlId);
             return get(controlId).current;
         } catch (Exception e) {
             DebugLog.panic("getSelectorValue", e);

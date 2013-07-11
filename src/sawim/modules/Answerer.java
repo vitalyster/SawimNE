@@ -1,5 +1,3 @@
-
-
 package sawim.modules;
 
 import java.util.Vector;
@@ -9,11 +7,12 @@ import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
+import ru.sawim.models.list.VirtualList;
+import ru.sawim.models.list.VirtualListModel;
 import sawim.*;
 import sawim.chat.message.Message;
 import sawim.comm.*;
 import sawim.io.Storage;
-import sawim.ui.text.*;
 import sawim.util.*;
 
 import protocol.*;
@@ -23,7 +22,7 @@ import ru.sawim.models.form.Forms;
 
 public final class Answerer implements FormListener {
     private Vector dictionary = new Vector();
-    private Forms form = Forms.getInstance();
+    private Forms form;
     private VirtualList list;
 	private VirtualListModel model = new VirtualListModel();
 
@@ -38,7 +37,7 @@ public final class Answerer implements FormListener {
     private static final int FORM_EDIT_ANSWER = 1;
     
     private Answerer() {
-        form.init("answerer_dictionary", this);
+        form = new Forms("answerer_dictionary", this);
     }
     
     private static final Answerer instance = new Answerer();
@@ -104,7 +103,7 @@ public final class Answerer implements FormListener {
 
                     case MENU_CLEAR:
                         popupAction();
-                        Toast.makeText(activity, "All removed", Toast.LENGTH_SHORT);
+                        Toast.makeText(activity, "All removed", Toast.LENGTH_SHORT).show();
                         break;
 
                     case MENU_ON_OFF:
@@ -125,7 +124,6 @@ public final class Answerer implements FormListener {
             model.addItem((String)dictionary.elementAt(i), false);
         }
         list.setModel(model);
-		list.updateModel();
     }
     
     public void load() {
@@ -204,8 +202,8 @@ public final class Answerer implements FormListener {
                 String item = form.getTextFieldValue(FORM_EDIT_QUESTION) +  "=" + form.getTextFieldValue(FORM_EDIT_ANSWER);      
                 dictionary.setElementAt(item, selItem);
 				save();
-                refreshList();
 			    form.back();
+                list.updateModel();
             } else {
                 form.back();
             }

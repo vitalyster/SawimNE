@@ -1,36 +1,36 @@
-
-
 package protocol;
 
+import android.view.ContextMenu;
+import android.view.Menu;
 import ru.sawim.models.form.VirtualListItem;
-import sawim.ui.text.VirtualListModel;
+import sawim.Clipboard;
+import ru.sawim.models.list.VirtualListModel;
 import DrawControls.icons.Icon;
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
-import sawim.ui.base.Scheme;
-import sawim.ui.text.VirtualList;
-//import sawim.ui.text.TextListController;
+import ru.sawim.Scheme;
+import ru.sawim.models.list.VirtualList;
 import protocol.jabber.*;
+import sawim.util.JLocale;
 
+import java.util.List;
 
 public final class StatusView {
-    public static final int INFO_MENU_COPY     = 1;
-    public static final int INFO_MENU_COPY_ALL = 2;
-    public static final int INFO_MENU_GOTO_URL = 4;
-    public static final int INFO_MENU_GET_X    = 5;
+
     private Protocol protocol;
     private Contact contact;
     private String clientVersion;
-    
     private VirtualListModel model;
     private VirtualList list;
+
+    public static final int INFO_MENU_COPY     = 1;
+    public static final int INFO_MENU_COPY_ALL = 2;
 
     public StatusView() {
     }
 
     public void addClient() {
-        addBr();
         if ((ClientInfo.CLI_NONE != contact.clientIndex)
                 && (null != protocol.clientInfo)) {
             addPlain(protocol.clientInfo.getIcon(contact.clientIndex),
@@ -52,7 +52,7 @@ public final class StatusView {
         }
         long signonTime = contact.chaingingStatusTime;
         if (0 < signonTime) {
-            long now = Sawim.getCurrentGmtTime();
+            long now = General.getCurrentGmtTime();
             boolean today = (now - 24 * 60 * 60) < signonTime;
             if (contact.isOnline()) {
                 addInfo("li_signon_time", Util.getLocalDateString(signonTime, today));
@@ -62,26 +62,21 @@ public final class StatusView {
             }
         }
     }
-    
-    public void addBr() {
-        VirtualListItem line = model.createNewParser(false);
-        line.addDescription(" \n", Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
-        model.addPar(line);
-    }
+
     public void addPlain(Icon img, String str) {
         if (!StringConvertor.isEmpty(str)) {
             VirtualListItem line = model.createNewParser(true);
             if (null != img) {
                 line.addIcon(img);
             }
-            line.addDescriptionSelectable(str, Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
+            line.addDescription(str, Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
             model.addPar(line);
         }
     }
     public void addStatusText(String text) {
         if (!StringConvertor.isEmpty(text)) {
             VirtualListItem line = model.createNewParser(true);
-            line.addDescriptionSelectable(text, Scheme.THEME_PARAM_VALUE, Scheme.FONT_STYLE_PLAIN);
+            line.addDescription(text, Scheme.THEME_PARAM_VALUE, Scheme.FONT_STYLE_PLAIN);
             model.addPar(line);
         }
     }
@@ -109,41 +104,33 @@ public final class StatusView {
         list = VirtualList.getInstance();
         model = new VirtualListModel();
         list.setModel(model);
-        /*list.setOnBuildContextMenu(new VirtualList.OnBuildContextMenu() {
+        list.setOnBuildContextMenu(new VirtualList.OnBuildContextMenu() {
             @Override
-            public void onCreateContextMenu(Menu menu) {
-                menu.add(Menu.FIRST, INFO_MENU_COPY, 2, "copy_text");
-                menu.add(Menu.FIRST, INFO_MENU_COPY_ALL, 2, "copy_all_text");
-                //if ((1 < list.getCurrItem()) && Util.hasURL(model.getParText(list.getCurrItem()))) {
-                //    menu.addItem("goto_url", INFO_MENU_GOTO_URL);
-                //}
-
-                if ((XStatusInfo.XSTATUS_NONE != contact.getXStatusIndex())
-                        && (protocol instanceof Icq)) {
-                    menu.add(Menu.FIRST, INFO_MENU_GET_X, 2, "reqxstatmsg up");
-                }
+            public void onCreateContextMenu(ContextMenu menu, int listItem) {
+                menu.add(Menu.FIRST, INFO_MENU_COPY, 2, JLocale.getString("copy_text"));
+                menu.add(Menu.FIRST, INFO_MENU_COPY_ALL, 2, JLocale.getString("copy_all_text"));
             }
 
             @Override
-            public void onContextItemSelected(int itemId) {
-                switch (itemId) {
+            public void onContextItemSelected(int listItem, int itemMenuId) {
+                switch (itemMenuId) {
                     case INFO_MENU_COPY:
+                        VirtualListItem item = list.getModel().elements.get(listItem);
+                        Clipboard.setClipBoardText(((item.getLabel() == null) ? "" : item.getLabel() + "\n") + item.getDescStr());
+                        break;
+
                     case INFO_MENU_COPY_ALL:
-                        //list.getController().copy(INFO_MENU_COPY_ALL == action);
-                        list.restore();
-                        break;
-
-                    case INFO_MENU_GOTO_URL:
-                        //ContactList.getInstance().gotoUrl(model.getParText(list.getCurrItem()));
-                        break;
-
-                    case INFO_MENU_GET_X:
-                        ((Icq)protocol).requestXStatusMessage(contact);
-                        list.restore();
+                        StringBuffer s = new StringBuffer();
+                        List<VirtualListItem> listItems = list.getModel().elements;
+                        for (int i = 0; i < listItems.size(); ++i) {
+                            s.append(listItems.get(i).getLabel()).append("\n")
+                                    .append(listItems.get(i).getDescStr()).append("\n");
+                        }
+                        Clipboard.setClipBoardText(s.toString());
                         break;
                 }
             }
-        });*/
+        });
         contact = c;
         protocol = p;
         clientVersion = null;
@@ -156,9 +143,7 @@ public final class StatusView {
     public Contact getContact() {
         return contact;
     }
-    public void update() {
-        list.updateModel();
-    }
+
     public void showIt() {
         list.show();
     }

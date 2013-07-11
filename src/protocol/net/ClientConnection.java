@@ -1,8 +1,6 @@
-
-
 package protocol.net;
 
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.SawimException;
 import sawim.chat.message.PlainMessage;
 import sawim.comm.StringConvertor;
@@ -18,26 +16,20 @@ public abstract class ClientConnection implements Runnable {
     protected boolean connect;
     private Vector messages = new Vector();
 
-    
     private long nextPingTime;
     private long pongTime;
 
     private static final int PING_INTERVAL = 90 ;
     private static final int PONG_TIMEOUT = 4 * 60 ;
 
-
     protected final void setPingInterval(long interval) {
         keepAliveInterv = Math.min(keepAliveInterv, interval);
-        nextPingTime = Sawim.getCurrentGmtTime() + keepAliveInterv;
+        nextPingTime = General.getCurrentGmtTime() + keepAliveInterv;
     }
     protected final long getPingInterval() {
         return keepAliveInterv;
     }
     protected final void usePong() {
-        if (-1 < StringConvertor.notNull(Sawim.PHONE).indexOf("EricssonJ108i")) {
-            return;
-        }
-        DebugLog.println("pong " + Sawim.PHONE + " " + StringConvertor.notNull(Sawim.PHONE).indexOf("EricssonJ108i"));
         usePong = true;
         updateTimeout();
     }
@@ -45,7 +37,7 @@ public abstract class ClientConnection implements Runnable {
     private void initPingValues() {
         usePong = false;
         keepAliveInterv = PING_INTERVAL;
-        nextPingTime = Sawim.getCurrentGmtTime() + keepAliveInterv;
+        nextPingTime = General.getCurrentGmtTime() + keepAliveInterv;
     }
     public final void start() {
         new Thread(this).start();
@@ -55,7 +47,6 @@ public abstract class ClientConnection implements Runnable {
         SawimException exception = null;
         try {
             connect();
-
             while (isConnected()) {
                 boolean doing = processPacket();
                 if (!doing) {
@@ -63,19 +54,14 @@ public abstract class ClientConnection implements Runnable {
                     doPingIfNeeeded();
                 }
             }
-
         } catch (SawimException e) {
             exception = e;
-
         } catch (OutOfMemoryError err) {
             exception = new SawimException(100, 2);
-
         } catch (Exception ex) {
-            
             if (null != getProtocol()) {
                 DebugLog.panic("die " + getId(), ex);
             }
-            
             exception = new SawimException(100, 1);
         }
         if (null != exception) {
@@ -85,18 +71,14 @@ public abstract class ClientConnection implements Runnable {
                     p.processException(exception);
                 }
             } catch (Exception ex) {
-                
                 DebugLog.panic("die2 " + getId(), ex);
-                
             }
         }
         disconnect();
         try {
             closeSocket();
         } catch (Exception e) {
-            
             DebugLog.panic("die3 " + getId(), e);
-            
         }
         connect = false;
     }
@@ -117,7 +99,7 @@ public abstract class ClientConnection implements Runnable {
     }
 
     private void doPingIfNeeeded() throws SawimException {
-        long now = Sawim.getCurrentGmtTime();
+        long now = General.getCurrentGmtTime();
         if (usePong && (pongTime + PONG_TIMEOUT < now)) {
             throw new SawimException(120, 9);
         }
@@ -132,7 +114,7 @@ public abstract class ClientConnection implements Runnable {
         }
     }
     protected final void updateTimeout() {
-        pongTime = Sawim.getCurrentGmtTime();
+        pongTime = General.getCurrentGmtTime();
     }
     public final boolean isConnected() {
         return connect;
@@ -169,8 +151,7 @@ public abstract class ClientConnection implements Runnable {
                 messages.removeElement(msg);
             }
         }
-
-        long date = Sawim.getCurrentGmtTime() - 5 * 60;
+        long date = General.getCurrentGmtTime() - 5 * 60;
         for (int i = messages.size() - 1; i >= 0; --i) {
             PlainMessage m = (PlainMessage)messages.elementAt(i);
             if (date > m.getNewDate()) {
@@ -188,4 +169,3 @@ public abstract class ClientConnection implements Runnable {
     protected abstract void ping() throws SawimException;
     protected abstract boolean processPacket() throws SawimException;
 }
-

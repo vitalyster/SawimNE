@@ -3,7 +3,7 @@
         android:id="@+id/widget35"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:padding="2dp"
+        android:padding="5dp"
         xmlns:android="http://schemas.android.com/apk/res/android">
     <ImageView
             android:id="@+id/first_image"
@@ -29,6 +29,7 @@
             android:id="@+id/widget45"
             android:layout_width="128dp"
             android:layout_height="wrap_content"
+            android:padding="5dp"
             android:orientation="vertical" android:layout_weight="9">
         <TextView
                 android:id="@+id/item_name"
@@ -54,5 +55,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/fourth_rule_image" android:layout_gravity="center_vertical|right"
+            android:layout_weight="1"/>
+    <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/fifth_rule_image" android:layout_gravity="center_vertical|right"
             android:layout_weight="1"/>
 </LinearLayout>

@@ -4,9 +4,8 @@ import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.view.MenuItem;
-import sawim.ui.text.VirtualList;
-import ru.sawim.R;
 import ru.sawim.view.VirtualListView;
+import ru.sawim.R;
 
 /**
  * Created with IntelliJ IDEA.
@@ -33,23 +32,24 @@ public class VirtualListActivity extends FragmentActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         VirtualListView view = (VirtualListView) getSupportFragmentManager().findFragmentById(R.id.virtual_list_fragment);
-        view.onCreateOptionsMenu(menu);
+        if (view != null)
+            view.onCreateOptionsMenu(menu);
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         VirtualListView view = (VirtualListView) getSupportFragmentManager().findFragmentById(R.id.virtual_list_fragment);
-        view.onOptionsItemSelected(this, item);
+        if (view != null)
+            view.onOptionsItemSelected(this, item);
         return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onBackPressed() {
         VirtualListView view = (VirtualListView) getSupportFragmentManager().findFragmentById(R.id.virtual_list_fragment);
-        if (view.onBackPressed())
-            super.onBackPressed();
-        VirtualList.getInstance().clearAll();
+        if (view != null)
+            if (view.onBackPressed())
+                super.onBackPressed();
     }
-
 }

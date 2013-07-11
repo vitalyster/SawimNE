@@ -1,4 +1,3 @@
-
 package protocol.jabber;
 
 
@@ -23,10 +22,11 @@ final class XForm {
     XForm() {
         this.waitingForm = true;
     }
+
     void init(String caption, FormListener listener) {
-        form = Forms.getInstance();
-        form.init(caption, listener);
+        form = new Forms(caption, listener);
     }
+
     public boolean isWaiting() {
         return waitingForm;
     }

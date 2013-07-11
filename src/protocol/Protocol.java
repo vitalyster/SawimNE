@@ -1,9 +1,8 @@
 package protocol;
 
 import DrawControls.icons.Icon;
-import DrawControls.tree.ProtocolBranch;
 import sawim.FileTransfer;
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.SawimException;
 import sawim.Options;
 import sawim.chat.Chat;
@@ -54,7 +53,6 @@ abstract public class Protocol {
     private Vector sortedContacts = new Vector();
     private Vector sortedGroups = new Vector();
     private Group notInListGroup;
-    private ProtocolBranch branch;
 
     private String getContactListRS() {
         return rmsName;
@@ -219,6 +217,7 @@ abstract public class Protocol {
             Util.sort(sortedGroups);
             updateContacts(notInListGroup);
         }
+        if (getContactList().getManager().getProtocolCount() == 0) return;
         getContactList().getManager().update();
         needSave();
     }
@@ -239,7 +238,7 @@ abstract public class Protocol {
     }
 
     private void updateContacts(Group group) {
-        getContactList().getManager().getModel().updateGroup(this, group);
+        getContactList().getManager().updateGroup(this, group);
     }
 
     public final boolean isConnecting() {
@@ -355,7 +354,7 @@ abstract public class Protocol {
             buf = cl.getRecord(1);
             bais = new ByteArrayInputStream(buf);
             dis = new DataInputStream(bais);
-            if (!dis.readUTF().equals(Sawim.VERSION)) {
+            if (!dis.readUTF().equals(General.VERSION)) {
                 throw new Exception();
             }
             loadProtocolData(cl.getRecord(2));
@@ -395,7 +394,7 @@ abstract public class Protocol {
         byte[] buf;
         baos = new ByteArrayOutputStream();
         dos = new DataOutputStream(baos);
-        dos.writeUTF(Sawim.VERSION);
+        dos.writeUTF(General.VERSION);
         buf = baos.toByteArray();
         cl.addRecord(buf, 0, buf.length);
         baos.reset();
@@ -661,7 +660,7 @@ abstract public class Protocol {
         synchronized (rosterLockObject) {
             if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
                 for (int i = groups.size() - 1; i >= 0; --i) {
-                    getContactList().getManager().getModel().updateGroupData((Group) groups.elementAt(i));
+                    getContactList().getManager().updateGroupData((Group) groups.elementAt(i));
                 }
             }
         }
@@ -765,7 +764,7 @@ abstract public class Protocol {
         if (null == g) {
             g = notInListGroup;
         }
-        getContactList().getManager().getModel().removeFromGroup(g, c);
+        getContactList().getManager().removeFromGroup(g, c);
     }
 
     private void ui_addContactToGroup(Contact contact, Group group) {
@@ -774,13 +773,13 @@ abstract public class Protocol {
         if (null == group) {
             group = notInListGroup;
         }
-        getContactList().getManager().getModel().addToGroup(group, contact);
+        getContactList().getManager().addToGroup(group, contact);
     }
 
     private void ui_updateGroup(Group group) {
         if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
             synchronized (rosterLockObject) {
-                getContactList().getManager().getModel().updateGroupData(group);
+                getContactList().getManager().updateGroupData(group);
                 Util.sort(sortedGroups);
             }
             ui_updateCL(group);
@@ -792,20 +791,11 @@ abstract public class Protocol {
     }
 
     private void ui_updateCL(Contact c) {
-        //if (!getProtocolBranch().isExpanded()) return;
         getContactList().getManager().update(c);
     }
 
     private void ui_updateCL(Group g) {
-        //if (!getProtocolBranch().isExpanded()) return;
         getContactList().getManager().update(g);
-    }
-
-    public final ProtocolBranch getProtocolBranch() {
-        if (null == branch) {
-            branch = new ProtocolBranch(this);
-        }
-        return branch;
     }
 
     public final Vector getSortedContacts() {
@@ -935,7 +925,7 @@ abstract public class Protocol {
     }
 
     private void setLastStatusChangeTime() {
-        lastStatusChangeTime = Sawim.getCurrentGmtTime();
+        lastStatusChangeTime = General.getCurrentGmtTime();
     }
 
     private boolean isEmptyMessage(String text) {
@@ -989,7 +979,7 @@ abstract public class Protocol {
                 ui_updateContact(contact);
             }
         }
-        ContactList.getInstance().receivedMessage(contact);
+        getContactList().markMessages(contact);
         getContactList().getManager().update(contact);
         getContactList().getManager().updateBarProtocols();
     }
@@ -1014,7 +1004,7 @@ abstract public class Protocol {
         }
         if (isHuman) {
             if (isPersonal) {
-                ContactList.getInstance().setActiveContact(contact);
+                getContactList().setActiveContact(contact);
             }
         }
         String id = contact.getUserId();
@@ -1047,8 +1037,6 @@ abstract public class Protocol {
                 playNotification(Notify.isSound(Notify.NOTIFY_MULTIMESSAGE), Notify.NOTIFY_MULTIMESSAGE);
             }
             playNotification(Notify.NOTIFY_MULTIMESSAGE);
-        } else {
-            playNotification(Notify.NOTIFY_RECONNECT);
         }
         if (!isPersonal) {
             return;
@@ -1101,7 +1089,8 @@ abstract public class Protocol {
 
     public final void processException(SawimException e) {
         DebugLog.println("process exception: " + e.getMessage());
-        if (!SawimActivity.getInstance().isNetworkAvailable()) {
+        getContactList().activateWithMsg(getUserId() + "\n" + e.getMessage());
+        if (!SawimApplication.getInstance().isNetworkAvailable()) {
             e = new SawimException(123, 0);
         }
         if (e.isReconnectable()) {
@@ -1130,9 +1119,7 @@ abstract public class Protocol {
     }
 
     public final void showException(SawimException e) {
-        if (!Sawim.isPaused()) {
-            getContactList().activateWithMsg(getUserId() + "\n" + e.getMessage());
-        }
+        getContactList().activateWithMsg(getUserId() + "\n" + e.getMessage());
     }
 
     public final void dismiss() {
@@ -1145,7 +1132,6 @@ abstract public class Protocol {
         profile = null;
         contacts = null;
         groups = null;
-        branch = null;
     }
 
     public void autoDenyAuth(String uin) {
@@ -1174,9 +1160,8 @@ abstract public class Protocol {
         if (StringConvertor.isEmpty(msg)) {
             return;
         }
-        PlainMessage plainMsg = new PlainMessage(this, to, Sawim.getCurrentGmtTime(), msg);
+        PlainMessage plainMsg = new PlainMessage(this, to, General.getCurrentGmtTime(), msg);
         if (isConnected()) {
-
             if (msg.startsWith("/") && !msg.startsWith("/me ") && !msg.startsWith("/wakeup") && (to instanceof JabberContact)) {
                 boolean cmdExecuted = ((JabberContact) to).execCommand(this, msg);
                 if (!cmdExecuted) {
@@ -1186,7 +1171,6 @@ abstract public class Protocol {
                 }
                 return;
             }
-
             sendSomeMessage(plainMsg);
         }
         if (addToChat) {

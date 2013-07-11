@@ -2,13 +2,13 @@ package ru.sawim.view.widgets;
 
 import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
-import android.app.Activity;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
-import sawim.ui.base.Scheme;
+import sawim.Options;
+import ru.sawim.Scheme;
 import protocol.jabber.Jabber;
 import protocol.jabber.JabberContact;
 import protocol.jabber.JabberServiceContact;
@@ -67,11 +67,11 @@ public class MucUserViewFactory {
             getItemAffilationImage().setImageBitmap(General.iconToBitmap(affiliationIcons.iconAt(JabberServiceContact.getAffiliationName(c.priorityA))));
             Icon ic = protocol.clientInfo.getIcon(c.client);
             ImageView itemClientImage = getItemClientImage();
-            if (ic == null) {
-                itemClientImage.setVisibility(ImageView.GONE);
-            } else {
+            if (ic != null && !Options.getBoolean(Options.OPTION_HIDE_ICONS_CLIENTS)) {
                 itemClientImage.setVisibility(ImageView.VISIBLE);
                 itemClientImage.setImageBitmap(General.iconToBitmap(ic));
+            } else {
+                itemClientImage.setVisibility(ImageView.GONE);
             }
         }
 

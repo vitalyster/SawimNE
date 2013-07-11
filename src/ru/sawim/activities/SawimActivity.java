@@ -25,63 +25,39 @@
 
 package ru.sawim.activities;
 
-import android.app.AlertDialog;
-import android.app.NotificationManager;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.media.AudioManager;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Message;
-import android.provider.MediaStore;
 import android.support.v4.app.FragmentActivity;
-import android.text.ClipboardManager;
-import android.util.Log;
 import android.view.*;
-import sawim.FileTransfer;
-import sawim.Sawim;
 import sawim.Options;
 import sawim.OptionsForm;
-import sawim.chat.ChatHistory;
 import sawim.cl.ContactList;
 import sawim.forms.ManageContactListForm;
 import sawim.forms.SmsForm;
-import sawim.history.HistoryStorage;
+import sawim.modules.DebugLog;
+import sawim.modules.MagicEye;
 import sawim.modules.Notify;
-import sawim.modules.photo.PhotoListener;
-import org.microemu.MIDletBridge;
-import org.microemu.cldc.file.FileSystem;
 import org.microemu.util.AndroidLoggerAppender;
-import org.microemu.app.Common;
 import org.microemu.log.Logger;
-import org.microemu.util.AndroidRecordStoreManager;
 import protocol.Protocol;
 import protocol.StatusInfo;
 import protocol.icq.Icq;
 import protocol.jabber.Jabber;
 import protocol.mrim.Mrim;
 import ru.sawim.*;
-import ru.sawim.photo.CameraActivity;
 import ru.sawim.view.StatusesView;
 import ru.sawim.view.XStatusesView;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.Locale;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class SawimActivity extends FragmentActivity {
 
     public static final String LOG_TAG = "SawimActivity";
-    public static String PACKAGE_NAME = null;
 
-    public Common common;
     private static SawimActivity instance;
-    private NetworkStateReceiver networkStateReceiver = new NetworkStateReceiver();
-
     public static SawimActivity getInstance() {
         return instance;
     }
@@ -91,10 +67,8 @@ public class SawimActivity extends FragmentActivity {
         super.onCreate(icicle);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        new General().init(this);
         setContentView(R.layout.main);
         instance = this;
-        PACKAGE_NAME = getApplicationContext().getPackageName();
 
         Logger.removeAllAppenders();
         Logger.setLocationEnabled(false);
@@ -130,64 +104,23 @@ public class SawimActivity extends FragmentActivity {
                 }
             }
         }));
-        MIDletInit();
-        if (!General.initialized) {
-            new Sawim().startApp();
-            ChatHistory.instance.loadUnreadMessages();
-            updateAppIcon();
-            ContactList.getInstance().autoConnect();
-        }
-    }
-
-    private void MIDletInit() {
-        common = new Common();
-        MIDletBridge.setMicroEmulator(common);
-        common.setRecordStoreManager(new AndroidRecordStoreManager(this));
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
-            System.setProperty("video.snapshot.encodings", "yes");
-        }
-        FileSystem fs = new FileSystem();
-        fs.registerImplementation();
-
-        startService();
-        networkStateReceiver.updateNetworkState(this);
-        common.initMIDlet();
-    }
-
-    private void startService() {
-        startService(new Intent(this, SawimService.class));
-        registerReceiver(networkStateReceiver, networkStateReceiver.getFilter());
-        bindService(new Intent(this, SawimService.class), serviceConnection, BIND_AUTO_CREATE);
-    }
-
-    @Override
-    protected void onDestroy() {
-        quit();
-        super.onDestroy();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        Sawim.maximize();
+        General.maximize();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        Sawim.minimize();
-    }
-
-    private void quit() {
-        unbindService(serviceConnection);
-        unregisterReceiver(networkStateReceiver);
-        stopService(new Intent(this, SawimService.class));
-        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).cancelAll();
+        General.minimize();
     }
 
     @Override
     public void onBackPressed() {
-        minimizeApp();
+        moveTaskToBack(true);
     }
 
     public void recreateActivity() {
@@ -209,6 +142,8 @@ public class SawimActivity extends FragmentActivity {
     private static final int MENU_GROUPS = 17;
     private static final int MENU_MYSELF = 18;
     private static final int MENU_MICROBLOG = 19;//ManageContactListForm
+    private static final int MENU_MAGIC_EYE = 20;
+    private static final int MENU_DEBUG_LOG = 21;
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -223,9 +158,9 @@ public class SawimActivity extends FragmentActivity {
             if ((p instanceof Icq) || (p instanceof Mrim))
                 menu.add(Menu.NONE, MENU_PRIVATE_STATUS, Menu.NONE, R.string.private_status);
 
-            int count = ContactList.getInstance().getManager().getModel().getProtocolCount();
+            int count = ContactList.getInstance().getManager().getProtocolCount();
             for (int i = 0; i < count; ++i) {
-                Protocol pr = ContactList.getInstance().getManager().getModel().getProtocol(i);
+                Protocol pr = ContactList.getInstance().getManager().getProtocol(i);
                 if ((pr instanceof Mrim) && pr.isConnected()) {
                     menu.add(Menu.NONE, MENU_SEND_SMS, Menu.NONE, R.string.send_sms);
                 }
@@ -246,6 +181,7 @@ public class SawimActivity extends FragmentActivity {
             }
         menu.add(Menu.NONE, MENU_SOUND, Menu.NONE, Options.getBoolean(Options.OPTION_SILENT_MODE)
                 ? R.string.sound_on : R.string.sound_off);
+        menu.add(Menu.NONE, MENU_MAGIC_EYE, Menu.NONE, R.string.magic_eye);
         SubMenu optionsMenu = menu.addSubMenu(Menu.NONE, MENU_OPTIONS, Menu.NONE, R.string.options);
         optionsMenu.add(Menu.NONE, OptionsForm.OPTIONS_ACCOUNT, Menu.NONE, R.string.options_account);
         optionsMenu.add(Menu.NONE, OptionsForm.OPTIONS_INTERFACE, Menu.NONE, R.string.options_interface);
@@ -254,6 +190,7 @@ public class SawimActivity extends FragmentActivity {
         optionsMenu.add(Menu.NONE, OptionsForm.OPTIONS_ABSENCE, Menu.NONE, R.string.absence);
         optionsMenu.add(Menu.NONE, OptionsForm.OPTIONS_ANSWERER, Menu.NONE, R.string.answerer);
 
+        menu.add(Menu.NONE, MENU_DEBUG_LOG, Menu.NONE, R.string.debug);
         menu.add(Menu.NONE, MENU_QUIT, Menu.NONE, R.string.quit);
         return super.onPrepareOptionsMenu(menu);
     }
@@ -270,19 +207,22 @@ public class SawimActivity extends FragmentActivity {
                 }
                 break;
             case MENU_STATUS:
-                new StatusesView(StatusesView.ADAPTER_STATUS).show(getSupportFragmentManager(), "change-status");
+                new StatusesView(p, StatusesView.ADAPTER_STATUS).show(getSupportFragmentManager(), "change-status");
                 break;
             case MENU_XSTATUS:
                 new XStatusesView().show(getSupportFragmentManager(), "change-xstatus");
                 break;
             case MENU_PRIVATE_STATUS:
-                new StatusesView(StatusesView.ADAPTER_PRIVATESTATUS).show(getSupportFragmentManager(), "change-private-status");
+                new StatusesView(p, StatusesView.ADAPTER_PRIVATESTATUS).show(getSupportFragmentManager(), "change-private-status");
                 break;
             case MENU_SEND_SMS:
                 new SmsForm(null, null).show();
                 break;
             case MENU_SOUND:
                 Notify.getSound().changeSoundMode(false);
+                break;
+            case MENU_MAGIC_EYE:
+                MagicEye.instance.activate();
                 break;
 
             case MENU_DISCO:
@@ -320,170 +260,16 @@ public class SawimActivity extends FragmentActivity {
                 new OptionsForm().select(item.getTitle(), OptionsForm.OPTIONS_ANSWERER);
                 break;
 
+            case MENU_DEBUG_LOG:
+                DebugLog.instance.activate();
+                break;
             case MENU_QUIT:
-                Sawim.getSawim().quit();
-                quit();
+                General.getInstance().quit();
+                SawimApplication.getInstance().quit();
                 finish();
                 System.exit(0);
                 break;
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    public void minimizeApp() {
-        Intent startMain = new Intent(Intent.ACTION_MAIN);
-        startMain.addCategory(Intent.CATEGORY_HOME);
-        startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(startMain);
-    }
-
-    public boolean isNetworkAvailable() {
-        return networkStateReceiver.isNetworkAvailable();
-    }
-
-    private PhotoListener photoListener = null;
-    private FileTransfer fileTransferListener = null;
-    private static final int RESULT_PHOTO = RESULT_FIRST_USER + 1;
-    private static final int RESULT_EXTERNAL_PHOTO = RESULT_FIRST_USER + 2;
-    private static final int RESULT_EXTERNAL_FILE = RESULT_FIRST_USER + 3;
-
-    public void startCamera(PhotoListener listener, int width, int height) {
-        photoListener = listener;
-        if (1000 < Math.max(width, height)) {
-            try {
-                Intent extCameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                if (!isCallable(extCameraIntent)) throw new Exception("not found");
-                startActivityForResult(extCameraIntent, RESULT_EXTERNAL_PHOTO);
-                return;
-            } catch (Exception ignored) {
-            }
-        }
-        Intent cameraIntent = new Intent(this, CameraActivity.class);
-        cameraIntent.putExtra("width", width);
-        cameraIntent.putExtra("height", height);
-        startActivityForResult(cameraIntent, RESULT_PHOTO);
-    }
-
-    public boolean pickFile(FileTransfer listener) {
-        try {
-            fileTransferListener = listener;
-            Intent theIntent = new Intent(Intent.ACTION_GET_CONTENT);
-            theIntent.setType("file/*");
-            theIntent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-            if (!isCallable(theIntent)) return false;
-            startActivityForResult(theIntent, RESULT_EXTERNAL_FILE);
-            return true;
-        } catch (Exception e) {
-            sawim.modules.DebugLog.panic("pickFile", e);
-            return false;
-        }
-    }
-
-    private boolean isCallable(Intent intent) {
-        return !getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).isEmpty();
-    }
-
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        sawim.modules.DebugLog.println("result " + requestCode + " " + resultCode + " " + data);
-        if (null == data) return;
-        if (RESULT_OK != resultCode) return;
-        try {
-            if (RESULT_PHOTO == requestCode) {
-                if (null == photoListener) return;
-                photoListener.processPhoto(data.getByteArrayExtra("photo"));
-                photoListener = null;
-
-            } else if (RESULT_EXTERNAL_PHOTO == requestCode) {
-                if (null == photoListener) return;
-                Uri uriImage = data.getData();
-                InputStream in = getContentResolver().openInputStream(uriImage);
-                byte[] img = new byte[in.available()];
-                in.read(img);
-                photoListener.processPhoto(img);
-                photoListener = null;
-
-            } else if (RESULT_EXTERNAL_FILE == requestCode) {
-                Uri fileUri = data.getData();
-                sawim.modules.DebugLog.println("File " + fileUri);
-                InputStream is = getContentResolver().openInputStream(fileUri);
-                fileTransferListener.onFileSelect(is, getFileName(fileUri));
-                fileTransferListener = null;
-            }
-        } catch (Throwable ignored) {
-            sawim.modules.DebugLog.panic("activity", ignored);
-        }
-    }
-
-    public void updateAppIcon() {
-        serviceConnection.send(Message.obtain(null, SawimService.UPDATE_APP_ICON));
-    }
-
-    private final Object lock = new Object();
-
-    public String getFromClipboard() {
-        final AtomicReference<String> text = new AtomicReference<String>();
-        text.set(null);
-        runOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                    text.set(clipboard.hasText() ? clipboard.getText().toString() : null);
-                    synchronized (lock) {
-                        lock.notify();
-                    }
-                } catch (Throwable e) {
-                    sawim.modules.DebugLog.panic("get clipboard", e);
-                    // do nothing
-                }
-            }
-        });
-        return text.get();
-    }
-
-    public void putToClipboard(final String label, final String text) {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                    clipboard.setText(text);
-                } catch (Throwable e) {
-                    sawim.modules.DebugLog.panic("set clipboard", e);
-                    // do nothing
-                }
-            }
-        });
-    }
-
-    private final SawimServiceConnection serviceConnection = new SawimServiceConnection();
-
-    private String getFileName(Uri fileUri) {
-        String file = getRealPathFromUri(fileUri);
-        return file.substring(file.lastIndexOf('/') + 1);
-    }
-
-    private String getRealPathFromUri(Uri uri) {
-        try {
-            if ("content".equals(uri.getScheme())) {
-                String[] proj = {MediaStore.MediaColumns.DATA};
-                Cursor cursor = managedQuery(uri, proj, null, null, null);
-                int columnIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
-                cursor.moveToFirst();
-                return cursor.getString(columnIndex);
-            }
-            if ("file".equals(uri.getScheme())) {
-                return uri.getPath();
-            }
-        } catch (Exception ignored) {
-        }
-        return uri.toString();
-    }
-
-    public void showHistory(HistoryStorage history) {
-        String historyFilePath = history.getAndroidStorage().getTextFile();
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        Uri uri = Uri.parse("file://" + historyFilePath);
-        intent.setDataAndType(uri, "text/plain");
-        startActivity(intent);
     }
 }

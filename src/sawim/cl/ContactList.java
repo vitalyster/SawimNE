@@ -1,12 +1,6 @@
-
-
 package sawim.cl;
 
-import DrawControls.tree.ContactListModel;
-import DrawControls.tree.TreeBranch;
 import DrawControls.tree.VirtualContactList;
-import android.util.Log;
-import android.widget.Toast;
 import protocol.Contact;
 import protocol.Profile;
 import protocol.Protocol;
@@ -15,7 +9,7 @@ import protocol.icq.Icq;
 import protocol.jabber.Jabber;
 import protocol.mrim.Mrim;
 import ru.sawim.General;
-import ru.sawim.activities.SawimActivity;
+import ru.sawim.SawimApplication;
 import sawim.FileTransfer;
 import sawim.Options;
 import sawim.modules.AutoAbsence;
@@ -59,12 +53,12 @@ public final class ContactList {
     }
 
     public void addProtocols(Vector accounts) {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         Protocol[] protocols = new Protocol[count];
         for (int i = 0; i < count; ++i) {
-            protocols[i] = contactList.getModel().getProtocol(i);
+            protocols[i] = contactList.getProtocol(i);
         }
-        contactList.getModel().removeAllProtocols();
+        contactList.removeAllProtocols();
         for (int i = 0; i < accounts.size(); ++i) {
             Profile profile = (Profile) accounts.elementAt(i);
             for (int j = 0; j < protocols.length; ++j) {
@@ -75,7 +69,7 @@ public final class ContactList {
                     }
                     protocols[j] = null;
                     profile = null;
-                    contactList.getModel().addProtocol(protocol);
+                    contactList.addProtocol(protocol);
                     break;
                 }
             }
@@ -104,9 +98,9 @@ public final class ContactList {
     }
 
     public void loadAccounts() {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol protocol = contactList.getModel().getProtocol(i);
+            Protocol protocol = contactList.getProtocol(i);
             protocol.safeLoad();
         }
     }
@@ -149,13 +143,13 @@ public final class ContactList {
         if (load) {
             protocol.safeLoad();
         }
-        contactList.getModel().addProtocol(protocol);
+        contactList.addProtocol(protocol);
     }
 
     public Protocol getProtocol(Profile profile) {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             if (p.getProfile() == profile) {
                 return p;
             }
@@ -164,9 +158,9 @@ public final class ContactList {
     }
 
     public Protocol getProtocol(String account) {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             if (p.getUserId().equals(account)) {
                 return p;
             }
@@ -175,28 +169,25 @@ public final class ContactList {
     }
 
     public Protocol[] getProtocols() {
-        ContactListModel model = contactList.getModel();
-        Protocol[] all = new Protocol[model.getProtocolCount()];
+        Protocol[] all = new Protocol[contactList.getProtocolCount()];
         for (int i = 0; i < all.length; ++i) {
-            all[i] = model.getProtocol(i);
+            all[i] = contactList.getProtocol(i);
         }
         return all;
     }
 
     public Protocol getProtocol(int i) {
-        ContactListModel model = contactList.getModel();
-        return model.getProtocol(i);
+        return contactList.getProtocol(i);
     }
 
     public Protocol getCurrProtocol() {
-        return contactList.getModel().getProtocol(contactList.getCurrProtocol());
+        return contactList.getProtocol(contactList.getCurrProtocol());
     }
 
     public Protocol getProtocol(Contact c) {
-        ContactListModel model = contactList.getModel();
-        for (int i = 0; i < model.getProtocolCount(); ++i) {
-            if (model.getProtocol(i).inContactList(c)) {
-                return model.getProtocol(i);
+        for (int i = 0; i < contactList.getProtocolCount(); ++i) {
+            if (contactList.getProtocol(i).inContactList(c)) {
+                return contactList.getProtocol(i);
             }
         }
         return null;
@@ -210,7 +201,7 @@ public final class ContactList {
         if (null != c) {
             contactList.setActiveContact(c);
         }
-        contactList.getModel().setAlwaysVisibleNode(c);
+        contactList.setAlwaysVisibleNode(c);
     }
 
     public void activate(Contact c) {
@@ -218,18 +209,18 @@ public final class ContactList {
         activate();
     }
 
-    public void activateWithMsg(String message) {
+    public void activateWithMsg(final String message) {
+        //Toast.makeText(SawimActivity.getInstance(), message, Toast.LENGTH_LONG).show();
         activate();
-        Toast.makeText(SawimActivity.getInstance(), message, Toast.LENGTH_LONG);
     }
 
     public void autoConnect() {
-        if (!SawimActivity.getInstance().isNetworkAvailable()) {
+        if (!SawimApplication.getInstance().isNetworkAvailable()) {
             return;
         }
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             if (!"".equals(p.getPassword()) && p.getProfile().isConnected()) {
                 p.connect();
             }
@@ -252,9 +243,9 @@ public final class ContactList {
     }
 
     public boolean isConnected() {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             if (p.isConnected() && !p.isConnecting()) {
                 return true;
             }
@@ -263,9 +254,9 @@ public final class ContactList {
     }
 
     public boolean isConnecting() {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             if (p.isConnecting()) {
                 return true;
             }
@@ -275,9 +266,9 @@ public final class ContactList {
 
     public boolean disconnect() {
         boolean disconnecting = false;
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             if (p.isConnected()) {
                 p.disconnect(false);
                 disconnecting = true;
@@ -287,17 +278,17 @@ public final class ContactList {
     }
 
     public void safeSave() {
-        int count = contactList.getModel().getProtocolCount();
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             p.safeSave();
         }
     }
 
-    public void collapseAll() {
-        int count = contactList.getModel().getProtocolCount();
+    /*public void collapseAll() {
+        int count = contactList.getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = contactList.getModel().getProtocol(i);
+            Protocol p = contactList.getProtocol(i);
             Vector groups = p.getGroupItems();
             for (int groupIndex = 0; groupIndex < groups.size(); ++groupIndex) {
                 ((TreeBranch) groups.elementAt(groupIndex)).setExpandFlag(false);
@@ -305,7 +296,7 @@ public final class ContactList {
             p.getNotInListGroup().setExpandFlag(false);
         }
         contactList.update();
-    }
+    }*/
 
     public VirtualContactList getManager() {
         return contactList;
@@ -315,18 +306,14 @@ public final class ContactList {
         contactList.setActiveContact(contact);
     }
 
-    public final void receivedMessage(Contact contact) {
-        markMessages(contact);
-    }
-
     public final void markMessages(Contact contact) {
+        SawimApplication.getInstance().updateAppIcon();
         if (General.getInstance().getUpdateChatListener() != null)
             General.getInstance().getUpdateChatListener().updateChat();
-        SawimActivity.getInstance().updateAppIcon();
     }
 
     public void updateConnectionStatus() {
-        SawimActivity.getInstance().updateAppIcon();
+        SawimApplication.getInstance().updateAppIcon();
     }
 
     public final Contact getCurrentContact() {
@@ -351,9 +338,9 @@ public final class ContactList {
         if (0 < contactListSaveDelay) {
             contactListSaveDelay--;
             if (0 == contactListSaveDelay) {
-                int count = contactList.getModel().getProtocolCount();
+                int count = contactList.getProtocolCount();
                 for (int i = 0; i < count; ++i) {
-                    Protocol p = contactList.getModel().getProtocol(i);
+                    Protocol p = contactList.getProtocol(i);
                     p.safeSave();
                 }
             }

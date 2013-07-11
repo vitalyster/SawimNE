@@ -1,51 +1,58 @@
-
-package sawim.ui.text;
+package ru.sawim.models.list;
 
 import DrawControls.icons.Icon;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import android.graphics.Bitmap;
-import ru.sawim.activities.VirtualListActivity;
 import ru.sawim.models.form.VirtualListItem;
 import sawim.comm.StringConvertor;
-import sawim.ui.base.Scheme;
+import ru.sawim.Scheme;
 import sawim.util.JLocale;
 
 
 public final class VirtualListModel {
     public List<VirtualListItem> elements;
     private String header = null;
+    private OnAddListListener addListListener;
 
     public VirtualListModel() {
         elements = new ArrayList<VirtualListItem>();
     }
 
     public final void addPar(final VirtualListItem item) {
-        if (VirtualListActivity.getInstance() == null) {
+        if (addListListener == null)
             elements.add(item);
-        } else {
-            VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    elements.add(item);
-                }
-            });
-        }
+        else
+            addListListener.addList(item);
+    }
+
+    public void clear() {
+        if (addListListener == null)
+            elements.clear();
+        else
+            addListListener.clearList();
+        header = null;
+    }
+
+    public void removeFirstText() {
+        if (addListListener == null)
+            elements.remove(0);
+        else
+            addListListener.removeFirstText();
+    }
+
+    public void setAddListListener(OnAddListListener addListListener) {
+        this.addListListener = addListListener;
+    }
+
+    public interface OnAddListListener {
+        void addList(VirtualListItem item);
+        void clearList();
+        void removeFirstText();
     }
 
     public final VirtualListItem createNewParser(boolean itemSelectable) {
         return new VirtualListItem(itemSelectable);
-    }
-
-    public void clear() {
-        elements.clear();
-        header = null;
-    }
-
-    public void removeFirst() {
-        elements.remove(0);
     }
     
     public final void addItem(String text, boolean active) {
@@ -81,7 +88,7 @@ public final class VirtualListModel {
             VirtualListItem line = createNewParser(true);
             line.addLabel(JLocale.getString(langStr) + ": ",
                     Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
-            line.addDescriptionSelectable(str, Scheme.THEME_PARAM_VALUE, Scheme.FONT_STYLE_PLAIN);
+            line.addDescription(str, Scheme.THEME_PARAM_VALUE, Scheme.FONT_STYLE_PLAIN);
             addPar(line);
         }
     }
@@ -116,7 +123,7 @@ public final class VirtualListModel {
     }
 
     public boolean isItemSelectable(int i) {
-        //if (elements.size() == 0) return false;
+        //if (elements.size() < i) return false;
         return elements.get(i).isItemSelectable();
     }
 }

@@ -1,12 +1,6 @@
-
-
-
 package sawim.comm;
 
-import DrawControls.icons.Image;
-import DrawControls.icons.ImageList;
-import DrawControls.tree.TreeNode;
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.Options;
 import sawim.util.JLocale;
 
@@ -341,7 +335,7 @@ public class Util {
 
     
     public static long createCurrentLocalTime() {
-        return gmtTimeToLocalTime(Sawim.getCurrentGmtTime());
+        return gmtTimeToLocalTime(General.getCurrentGmtTime());
     }
 
     public static String getLocalDayOfWeek(long gmtTime) {
@@ -541,7 +535,7 @@ public class Util {
 
     
     public static int uniqueValue() {
-        int time = (int)(Sawim.getCurrentGmtTime() & 0x7FFF);
+        int time = (int)(General.getCurrentGmtTime() & 0x7FFF);
         return (time << 16) | (rand.nextInt() & 0xFFFF);
     }
     

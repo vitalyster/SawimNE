@@ -1,9 +1,8 @@
 package sawim.chat;
 
-import DrawControls.icons.Icon;
-import ru.sawim.activities.ChatActivity;
+import ru.sawim.General;
 import sawim.Options;
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.chat.message.Message;
 import sawim.chat.message.PlainMessage;
 import sawim.chat.message.SystemNotice;
@@ -18,6 +17,7 @@ import protocol.jabber.Jabber;
 import protocol.jabber.JabberContact;
 import protocol.jabber.JabberServiceContact;
 import protocol.jabber.Jid;
+import sawim.modules.MagicEye;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,6 @@ public final class Chat {
     private Contact contact;
     private boolean writable = true;
     private HistoryStorage history;
-    private Icon[] statusIcons = new Icon[7];
     private boolean showStatus = true;
     private List<MessData> messData = new ArrayList<MessData>();
     private boolean visibleChat;
@@ -43,15 +42,7 @@ public final class Chat {
         contact = item;
     }
 
-    private void updateStatusIcons() {
-        for (int i = 0; i < statusIcons.length; ++i) {
-            statusIcons[i] = null;
-        }
-        contact.getLeftIcons(statusIcons);
-
-    }
     public void updateStatus() {
-        updateStatusIcons();
         showStatus = true;
         showStatusPopup();
     }
@@ -83,7 +74,6 @@ public final class Chat {
     }
 
     public void beginTyping(boolean type) {
-        updateStatusIcons();
     }
 
     public static boolean isHighlight(String text, String nick) {
@@ -110,11 +100,15 @@ public final class Chat {
     }
 
     public void addFileProgress(String caption, String text) {
-        long time = Sawim.getCurrentGmtTime();
+        long time = General.getCurrentGmtTime();
         short flags = MessData.PROGRESS;
         final MessData mData = new MessData(time, text, caption, flags, Message.ICON_NONE);
-        messData.add(mData);
-        removeOldMessages();
+        if (General.getInstance().getUpdateChatListener() == null) {
+            removeOldMessages();
+            messData.add(mData);
+        } else {
+            General.getInstance().getUpdateChatListener().addMessage(this, mData);
+        }
     }
 
     public int getIcon(Message message, boolean incoming) {
@@ -132,7 +126,7 @@ public final class Chat {
             }
             return Message.ICON_IN_MSG_HI;
         }
-        return message.iconIndex;
+        return Message.ICON_OUT_MSG;
     }
 
     public String getMyName() {
@@ -164,8 +158,6 @@ public final class Chat {
         showStatus = false;
     }
 
-    final static private int MAX_HIST_LAST_MESS = 5;
-
     public boolean hasHistory() {
         return contact.hasHistory();
     }
@@ -190,8 +182,7 @@ public final class Chat {
                 return;
             }
 
-            int loadOffset = Math.max(recCount - MAX_HIST_LAST_MESS, 0);
-            for (int i = loadOffset; i < recCount; ++i) {
+            for (int i = 0; i < recCount; ++i) {
                 CachedRecord rec = hist.getRecord(i);
                 if (null == rec) {
                     continue;
@@ -225,21 +216,13 @@ public final class Chat {
     }
 
     public void clear() {
-        ChatActivity.THIS.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
         messData.clear();
-            }
-        });
     }
 
     public void removeMessages(final int limit) {
         if (messData.size() < limit) {
             return;
         }
-        ChatActivity.THIS.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
         if ((0 < limit) && (0 < messData.size())) {
             while (limit < messData.size()) {
                 messData.remove(0);
@@ -247,11 +230,9 @@ public final class Chat {
         } else {
             ChatHistory.instance.unregisterChat(Chat.this);
         }
-            }
-        });
     }
 
-    private void removeOldMessages() {
+    public void removeOldMessages() {
         removeMessages(Options.getInt(Options.OPTION_MAX_MSG_COUNT));
     }
 
@@ -395,21 +376,31 @@ public final class Chat {
         if (message instanceof SystemNotice) {
             flags |= MessData.SERVICE;
         }
-        final MessData mData = new MessData(message, message.getNewDate(), messageText, from, flags, getIcon(message, incoming));
+        final MessData mData = new MessData(message.getNewDate(), messageText, from, flags, getIcon(message, incoming));
         if (!incoming) {
             message.setVisibleIcon(mData);
         }
-        if (ChatActivity.THIS == null) {
-            messData.add(mData);
+        if (General.getInstance().getUpdateChatListener() == null) {
             removeOldMessages();
+            messData.add(mData);
         } else {
-            ChatActivity.THIS.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    messData.add(mData);
-                    removeOldMessages();
-                }
-            });
+            General.getInstance().getUpdateChatListener().addMessage(this, mData);
+        }
+    }
+
+    public void addPresence(SystemNotice message) {
+        ChatHistory.instance.registerChat(this);
+        String messageText = message.getProcessedText();
+        final MessData mData = new MessData(message.getNewDate(), messageText, message.getName(), MessData.PRESENCE, Message.ICON_NONE);
+        if (General.getInstance().getUpdateChatListener() == null) {
+            removeOldMessages();
+            messData.add(mData);
+        } else {
+            General.getInstance().getUpdateChatListener().addMessage(this, mData);
+        }
+        if (!isVisibleChat()) {
+            contact.updateChatState(this);
+            ChatHistory.instance.updateChatList();
         }
     }
 
@@ -432,16 +423,13 @@ public final class Chat {
             }
         } else if (message instanceof SystemNotice) {
             SystemNotice notice = (SystemNotice) message;
-            if (SystemNotice.SYS_NOTICE_PRESENCE != notice.getSysnoteType()) {
-                if (SystemNotice.SYS_NOTICE_AUTHREQ == notice.getSysnoteType()) {
-                    inc = true;
-                    authRequestCounter = inc(authRequestCounter);
-                } else if (inc) {
-                    sysNoticeCounter = inc(sysNoticeCounter);
-                }
-                //MagicEye.addAction(protocol, contact.getUserId(), message.getDescStr());
+            if (SystemNotice.SYS_NOTICE_AUTHREQ == notice.getSysnoteType()) {
+                inc = true;
+                authRequestCounter = inc(authRequestCounter);
+            } else if (inc) {
+                sysNoticeCounter = inc(sysNoticeCounter);
             }
-
+            MagicEye.addAction(protocol, contact.getUserId(), message.getText());
             addTextToForm(message, getFrom(message));
         }
         if (inc) {

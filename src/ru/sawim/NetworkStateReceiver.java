@@ -7,7 +7,6 @@ import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import sawim.cl.ContactList;
-import org.microemu.MIDletBridge;
 import protocol.Protocol;
 
 public class NetworkStateReceiver extends BroadcastReceiver {
@@ -40,7 +39,6 @@ public class NetworkStateReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent networkIntent) {
         try {
             if (updateNetworkState(context)) {
-                //if (null == MIDletBridge.getCurrentMIDlet()) return;
                 resetConnections();
                 if (isNetworkAvailable) {
                     restoreConnections();
@@ -66,9 +64,9 @@ public class NetworkStateReceiver extends BroadcastReceiver {
     }
 
     private void resetConnections() {
-        int count = ContactList.getInstance().getManager().getModel().getProtocolCount();
+        int count = ContactList.getInstance().getManager().getProtocolCount();
         for (int i = 0; i < count; ++i) {
-            Protocol p = ContactList.getInstance().getManager().getModel().getProtocol(i);
+            Protocol p = ContactList.getInstance().getManager().getProtocol(i);
             p.disconnect(false);
         }
     }

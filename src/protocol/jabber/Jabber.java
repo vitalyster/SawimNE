@@ -1,11 +1,11 @@
-
-
 package protocol.jabber;
 
 import DrawControls.icons.ImageList;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
+import ru.sawim.General;
 import ru.sawim.view.TextBoxView;
 import sawim.FileTransfer;
 import sawim.chat.message.PlainMessage;
@@ -14,7 +14,6 @@ import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.search.Search;
 import sawim.search.UserInfo;
-import sawim.ui.TextBoxListener;
 import sawim.util.JLocale;
 import protocol.*;
 import ru.sawim.SawimApplication;
@@ -283,6 +282,8 @@ public final class Jabber extends Protocol implements FormListener {
 
     void setConfContactStatus(JabberServiceContact conf, String resource, byte status, String statusText, int role, int priorityA) {
         conf.__setStatus(resource, role, priorityA, status, statusText);
+        if (General.getInstance().getUpdateChatListener() != null)
+            General.getInstance().getUpdateChatListener().updateMucList();
     }
 
     void setContactStatus(JabberContact c, String resource, byte status, String text, int priority) {
@@ -567,7 +568,7 @@ public final class Jabber extends Protocol implements FormListener {
 			case JabberServiceContact.COMMAND_TITLE:
                 TextBoxView textbox = new TextBoxView();
                 textbox.setString("/title " + c.getStatusText());
-                textbox.setTextBoxListener(new TextBoxListener() {
+                textbox.setTextBoxListener(new TextBoxView.TextBoxListener() {
                     @Override
                     public void textboxAction(TextBoxView box, boolean ok) {
                         sendMessage(contact, box.getString(), true);
@@ -661,7 +662,7 @@ public final class Jabber extends Protocol implements FormListener {
                 selected = i;
             }
         }
-        AlertDialog.Builder builder = new AlertDialog.Builder(SawimActivity.getInstance());
+		AlertDialog.Builder builder = new AlertDialog.Builder(SawimActivity.getInstance());
         builder.setTitle(c.getName());
         builder.setSingleChoiceItems(Util.vectorToArray(items), selected, new DialogInterface.OnClickListener() {
             @Override
@@ -733,7 +734,6 @@ public final class Jabber extends Protocol implements FormListener {
             statusView.addClient();
         }
         statusView.addTime();
-        statusView.update();
     }
 
     public void showStatus(Contact contact) {
@@ -791,8 +791,7 @@ public final class Jabber extends Protocol implements FormListener {
 	}
 
 	final void showInviteForm(String jid) {
-	    enterDataInvite = Forms.getInstance();
-        enterDataInvite.init("invite", this);
+	    enterDataInvite = new Forms("invite", this);
 	    enterDataInvite.addSelector(JID_MESS_TO, "conference", onlineConference(getContactItems()), 1); 
 		enterDataInvite.addTextField(JID_INVITE_TO, "jid", jid);
         enterDataInvite.addTextField(REASON_INVITE, "reason", "");
@@ -800,8 +799,7 @@ public final class Jabber extends Protocol implements FormListener {
 	}
     void showOptionsForm(JabberServiceContact c) {
         enterConf = c;
-        enterData = Forms.getInstance();
-        enterData.init("conference", this);
+        enterData = new Forms("conference", this);
         enterData.addTextField(NICK, "nick", c.getMyName());
         enterData.addTextField(PASSWORD, "password", c.getPassword());
         if (!c.isTemp()) {
@@ -837,7 +835,7 @@ public final class Jabber extends Protocol implements FormListener {
                     }
                 }
                 ContactList.getInstance().activate();
-
+                enterData.back();
             } else {
                 enterData.back();
             }

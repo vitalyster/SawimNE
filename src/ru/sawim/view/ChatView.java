@@ -1,6 +1,5 @@
 package ru.sawim.view;
 
-
 import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
 import android.app.Activity;
@@ -8,6 +7,7 @@ import android.app.AlertDialog;
 import android.content.*;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.text.Editable;
@@ -23,23 +23,19 @@ import protocol.Protocol;
 import protocol.jabber.*;
 import ru.sawim.General;
 import ru.sawim.R;
-import ru.sawim.activities.ChatActivity;
 import ru.sawim.models.MessagesAdapter;
-import ru.sawim.models.MucUsersAdapter;
+import ru.sawim.view.widgets.menu.MyMenu;
+import sawim.Clipboard;
 import sawim.FileTransfer;
 import sawim.Options;
-import sawim.Sawim;
-import sawim.SawimUI;
 import sawim.chat.Chat;
 import sawim.chat.ChatHistory;
 import sawim.chat.MessData;
 import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
-import sawim.ui.TextBoxListener;
-import sawim.ui.base.Scheme;
+import ru.sawim.Scheme;
 import sawim.util.JLocale;
 
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 
@@ -116,42 +112,48 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
     private static final int ACTION_QUOTE = 4;
     private static final int ACTION_DEL_CHAT = 5;
 
-    public void onCreateMenu(Menu menu) {
+    public void showMenu() {
+        final MyMenu menu = new MyMenu(getActivity());
         boolean accessible = chat.getWritable() && (currentContact.isSingleUserContact() || currentContact.isOnline());
         if (0 < chat.getAuthRequestCounter()) {
-            menu.add(Menu.FIRST, Contact.USER_MENU_GRANT_AUTH, 0, JLocale.getString("grant"));
-            menu.add(Menu.FIRST, Contact.USER_MENU_DENY_AUTH, 0, JLocale.getString("deny"));
+            menu.add(JLocale.getString("grant"), Contact.USER_MENU_GRANT_AUTH);
+            menu.add(JLocale.getString("deny"), Contact.USER_MENU_DENY_AUTH);
         }
         if (!currentContact.isAuth()) {
-            menu.add(Menu.FIRST, Contact.USER_MENU_REQU_AUTH, 0, JLocale.getString("requauth"));
+            menu.add(JLocale.getString("requauth"), Contact.USER_MENU_REQU_AUTH);
         }
         if (accessible) {
             if (sawim.modules.fs.FileSystem.isSupported()) {
-                menu.add(Menu.FIRST, Contact.USER_MENU_FILE_TRANS, 0, JLocale.getString("ft_name"));
+                menu.add(JLocale.getString("ft_name"), Contact.USER_MENU_FILE_TRANS);
             }
             if (FileTransfer.isPhotoSupported()) {
-                menu.add(Menu.FIRST, Contact.USER_MENU_CAM_TRANS, 0, JLocale.getString("ft_cam"));
+                menu.add(JLocale.getString("ft_cam"), Contact.USER_MENU_CAM_TRANS);
             }
         }
+        menu.add(getActivity().getResources().getString(R.string.user_statuses), Contact.USER_MENU_STATUSES);
         if (!currentContact.isSingleUserContact() && currentContact.isOnline()) {
-            menu.add(Menu.FIRST, Contact.CONFERENCE_DISCONNECT, 0, JLocale.getString("leave_chat"));
+            menu.add(JLocale.getString("leave_chat"), Contact.CONFERENCE_DISCONNECT);
         }
-        menu.add(Menu.FIRST, Contact.USER_MENU_STATUSES, 2, R.string.user_statuses);
-        menu.add(Menu.FIRST, ACTION_DEL_CHAT, 0, JLocale.getString("delete_chat"));
-    }
+        menu.add(JLocale.getString("delete_chat"), ACTION_DEL_CHAT);
 
-    public void onMenuItemSelected(MenuItem item) {
-        if (item.getItemId() == ACTION_DEL_CHAT) {
-            chat.removeMessagesAtCursor(chatListView.getFirstVisiblePosition());
-            if (0 < messData.size()) {
-                updateChat();
-            } else {
-                ChatHistory.instance.unregisterChat(chat);
-                ContactList.getInstance().activate(null);
+        AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(getActivity(), R.style.AlertDialogCustom));
+        builder.setTitle(currentContact.getName());
+        builder.setAdapter(menu, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (menu.getItem(which).idItem == ACTION_DEL_CHAT) {
+                    /*chat.removeMessagesAtCursor(chatListView.getFirstVisiblePosition() + 1);
+                    if (0 < messData.size()) {
+                        updateChat();
+                    }*/
+                    ChatHistory.instance.unregisterChat(chat);
+                    getActivity().finish();
+                    return;
+                }
+                new ContactMenu(protocol, currentContact).doAction(getActivity(), menu.getItem(which).idItem);
             }
-            return;
-        }
-        new ContactMenu(protocol, currentContact).doAction(getActivity(), item.getItemId());
+        });
+        builder.create().show();
     }
 
     @Override
@@ -165,6 +167,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         if (!Options.getBoolean(Options.OPTION_HISTORY) && chat.hasHistory()) {
             menu.add(Menu.FIRST, ACTION_ADD_TO_HISTORY, 0, JLocale.getString("add_to_history"));
         }
+        currentContact.addChatMenuItems(menu);
     }
 
     @Override
@@ -180,7 +183,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
                 if (md.isMe()) {
                     msg = "*" + md.getNick() + " " + msg;
                 }
-                SawimUI.setClipBoardText(md.isIncoming(), md.getNick(), md.strTime, msg + "\n");
+                Clipboard.setClipBoardText(md.isIncoming(), md.getNick(), md.strTime, msg + "\n");
                 break;
 
             case ACTION_QUOTE:
@@ -188,9 +191,9 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
                 if (md.isMe()) {
                     msg = "*" + md.getNick() + " " + msg;
                 }
-                sb.append(SawimUI.serialize(md.isIncoming(), md.getNick() + " " + md.strTime, msg));
+                sb.append(Clipboard.serialize(md.isIncoming(), md.getNick() + " " + md.strTime, msg));
                 sb.append("\n-----\n");
-                SawimUI.setClipBoardText(0 == sb.length() ? null : sb.toString());
+                Clipboard.setClipBoardText(0 == sb.length() ? null : sb.toString());
                 break;
 
             case ACTION_ADD_TO_HISTORY:
@@ -260,7 +263,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
 
     public void pause(Chat chat) {
         if (chat == null) return;
-        addLastPosition(chat.getContact().getUserId(), chatListView.getFirstVisiblePosition());
+            addLastPosition(chat.getContact().getUserId(), chatListView.getFirstVisiblePosition());
     }
 
     public void resume(final Chat chat) {
@@ -341,19 +344,35 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
             usersImage.setVisibility(View.GONE);
             nickList.setVisibility(View.GONE);
         }
+        ImageButton menuButton = (ImageButton) currentActivity.findViewById(R.id.menu_button);
+        if (General.isTablet(getActivity())) {
+            menuButton.setVisibility(ImageButton.VISIBLE);
+            menuButton.setBackgroundColor(background);
+            menuButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    showMenu();
+                }
+            });
+        } else {
+            menuButton.setVisibility(ImageButton.GONE);
+        }
 
         ImageButton smileButton = (ImageButton) currentActivity.findViewById(R.id.input_smile_button);
         smileButton.setBackgroundColor(background);
         smileButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new SmilesView().show(getActivity().getSupportFragmentManager(), "onContextItemSelected-smile");
+                new SmilesView().show(getActivity().getSupportFragmentManager(), "show-smiles");
             }
         });
+        sendByEnter = Options.getBoolean(Options.OPTION_SIMPLE_INPUT);
         ImageButton sendButton = (ImageButton) currentActivity.findViewById(R.id.input_send_button);
-        sendButton.setBackgroundColor(background);
-        sendByEnter = (null == sendButton);
-        if (null != sendButton) {
+        if (sendByEnter) {
+            sendButton.setVisibility(ImageButton.GONE);
+        } else {
+            sendButton.setVisibility(ImageButton.VISIBLE);
+            sendButton.setBackgroundColor(background);
             sendButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -366,22 +385,25 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
             messageEditor.setOnEditorActionListener(enterListener);
         }
         messageEditor.addTextChangedListener(textWatcher);
+        chatListView.setStackFromBottom(true);
+        chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_NORMAL);
+        chatListView.setOnCreateContextMenuListener(this);
+        chatListView.setOnItemClickListener(new ChatClick());
+        chatListView.setOnScrollListener(this);
         chatListView.setFocusable(true);
         chatListView.setCacheColorHint(0x00000000);
-        chatListView.setOnScrollListener(this);
-        chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_NORMAL);
-        chatListView.setStackFromBottom(true);
         chatListView.setAdapter(adapter);
-        chatListView.setOnCreateContextMenuListener(this);
-        chatListView.setOnItemClickListener(new ListView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
-                MessData msg = adapter.getItem(position);
-                setText("");
-                setText(onMessageSelected(msg));
-            }
-        });
     }
+
+    public class ChatClick implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+            MessData msg = (MessData) adapterView.getAdapter().getItem(position);
+            setText("");
+            setText(onMessageSelected(msg));
+        }
+    }
+
 
     public Chat getCurrentChat() {
         return chat;
@@ -551,6 +573,21 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         }
     }
 
+    @Override
+    public void addMessage(final Chat chat, final MessData mess) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (adapter != null) {
+                    chat.removeOldMessages();
+                    chat.getMessData().add(mess);
+                    adapter.notifyDataSetChanged();
+                }
+            }
+        });
+    }
+
+    @Override
     public void updateMucList() {
         getActivity().runOnUiThread(new Runnable() {
             @Override

@@ -4,6 +4,8 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
+import android.view.ContextThemeWrapper;
+import ru.sawim.R;
 import sawim.FileTransfer;
 import sawim.chat.message.PlainMessage;
 import sawim.cl.ContactList;
@@ -11,13 +13,12 @@ import sawim.comm.Util;
 import sawim.forms.ManageContactListForm;
 import sawim.history.HistoryStorage;
 import sawim.history.HistoryStorageList;
-import sawim.ui.TextBoxListener;
 import sawim.util.JLocale;
 import protocol.jabber.Jabber;
 import ru.sawim.view.TextBoxView;
 import java.util.Vector;
 
-public class ContactMenu implements TextBoxListener {
+public class ContactMenu implements TextBoxView.TextBoxListener {
     private Contact contact;
     private Protocol protocol;
     private TextBoxView messageTextbox;
@@ -106,7 +107,7 @@ public class ContactMenu implements TextBoxListener {
                 items[1] = JLocale.getString("admins");
                 items[2] = JLocale.getString("members");
                 items[3] = JLocale.getString("inban");
-                AlertDialog.Builder builder = new AlertDialog.Builder(a);
+				AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(a, R.style.AlertDialogCustom));
                 builder.setTitle(contact.getName());
                 builder.setItems(items, new DialogInterface.OnClickListener() {
                     @Override

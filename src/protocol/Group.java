@@ -1,23 +1,20 @@
-
-
 package protocol;
 
-import DrawControls.icons.Icon;
-import DrawControls.tree.TreeBranch;
-import sawim.chat.ChatHistory;
+import DrawControls.tree.TreeNode;
 import sawim.comm.Sortable;
 import sawim.comm.Util;
-
 import java.util.Vector;
 
 
-public class Group extends TreeBranch implements Sortable {
+public class Group extends TreeNode implements Sortable {
+
     private String name;
     private final Vector contacts = new Vector();
     private byte mode;
     private String caption = null;
     private String count = null;
     private int groupId;
+    private boolean expanded = false;
 
     public static final int NOT_IN_GROUP = -1;
 
@@ -36,7 +33,16 @@ public class Group extends TreeBranch implements Sortable {
         caption = name;
         setMode(Group.MODE_FULL_ACCESS);
     }
-    
+
+    public final boolean isExpanded() {
+        return expanded;
+    }
+
+    public final void setExpandFlag(boolean value) {
+        expanded = value;
+        sort();
+    }
+
     public final String getName() {
         return this.name;
     }
@@ -70,16 +76,6 @@ public class Group extends TreeBranch implements Sortable {
         this.groupId = groupId;
     }
 
-    public final void getLeftIcons(Icon[] icons) {
-    }
-
-    public final void getRightIcons(Icon[] rightIcons) {
-        if (isExpanded()) {
-            return;
-        }
-        rightIcons[0] = ChatHistory.instance.getUnreadMessageIcon(getContacts());
-    }
-
     public boolean isEmpty() {
         return (0 == contacts.size());
     }
@@ -103,14 +99,21 @@ public class Group extends TreeBranch implements Sortable {
             caption += " (" + onlineCount + "/" + total + ")";
         }
     }
+
     public final String getText() {
         return caption;
     }
+
+    @Override
+    protected int getType() {
+        return TreeNode.GROUP;
+    }
+
     public final String getCount() {
         return count;
     }
     public final void sort() {
-        if (isExpanded()) {
+        if (expanded) {
             Util.sort(contacts);
         }
     }

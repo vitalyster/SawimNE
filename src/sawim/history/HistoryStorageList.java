@@ -2,17 +2,18 @@ package sawim.history;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.util.Log;
 import android.view.ContextMenu;
+import android.view.ContextThemeWrapper;
 import android.view.Menu;
 import android.widget.Toast;
-import protocol.jabber.Jabber;
+import ru.sawim.General;
+import ru.sawim.R;
 import ru.sawim.activities.SawimActivity;
 import ru.sawim.activities.VirtualListActivity;
 import ru.sawim.models.form.VirtualListItem;
-import sawim.ui.base.Scheme;
-import sawim.ui.text.VirtualList;
-import sawim.ui.text.VirtualListModel;
+import ru.sawim.Scheme;
+import ru.sawim.models.list.VirtualList;
+import ru.sawim.models.list.VirtualListModel;
 import java.util.*;
 import javax.microedition.rms.*;
 import sawim.*;
@@ -71,6 +72,8 @@ public final class HistoryStorageList implements Runnable, FormListener {
             @Override
             public boolean back() {
                 closeHistoryView();
+                allMsg.clearAll();
+                currMsg.clearAll();
                 return true;
             }
         });
@@ -115,7 +118,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
     
     private void clearCache() {
         cachedRecords.clear();
-        Sawim.gc();
+        General.gc();
     }
 
     protected void onCursorMove(int index) {
@@ -129,8 +132,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
         switch (action) {
             case MENU_FIND:
                 if (null == frmFind) {
-                    frmFind = Forms.getInstance();
-                    frmFind.init("find", this);
+                    frmFind = new Forms("find", this);
                     frmFind.addTextField(tfldFind, "text_to_find", "");
                     frmFind.addCheckBox(find_backwards, "find_backwards", true);
                     frmFind.addCheckBox(find_case_sensitiv, "find_case_sensitiv", false);
@@ -144,7 +146,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
                 items[0] = JLocale.getString("currect_contact");
                 items[1] = JLocale.getString("all_contact_except_this");
                 items[2] = JLocale.getString("all_contacts");
-                AlertDialog.Builder builder = new AlertDialog.Builder(SawimActivity.getInstance());
+				AlertDialog.Builder builder = new AlertDialog.Builder(SawimActivity.getInstance());
                 builder.setTitle(JLocale.getString("history"));
                 builder.setItems(items, new DialogInterface.OnClickListener() {
                     @Override
@@ -172,7 +174,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
                 if (-1 == index) return;
                 CachedRecord record = getCachedRecord(index);
                 if (null == record) return;
-                SawimUI.setClipBoardText((record.type == 0),
+                Clipboard.setClipBoardText((record.type == 0),
                         record.from, record.date, record.text);
                 break;
 
@@ -339,7 +341,6 @@ public final class HistoryStorageList implements Runnable, FormListener {
             parser.addTextWithSmiles(record.getShortText(), (record.type == 0) ? Scheme.THEME_CHAT_INMSG
                     : Scheme.THEME_CHAT_OUTMSG, Scheme.FONT_STYLE_PLAIN);
             msgText.addPar(parser);
-
             allMsg.setModel(msgText);
         }
     }

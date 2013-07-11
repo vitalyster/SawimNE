@@ -2,12 +2,10 @@ package ru.sawim.models;
 
 import DrawControls.icons.AniIcon;
 import DrawControls.icons.Icon;
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.BitmapDrawable;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,12 +34,12 @@ public class SmilesAdapter extends BaseAdapter {
 
     @Override
     public int getCount() {
-        return emotions.smiles().size();
+        return emotions.count();
     }
 
     @Override
-    public Integer getItem(int i) {
-        return i;
+    public Icon getItem(int i) {
+        return emotions.getSmile(i);
     }
 
     @Override
@@ -107,8 +105,7 @@ public class SmilesAdapter extends BaseAdapter {
             }
         }*/
 
-        void populateFrom(int item) {
-            Icon ic = emotions.smiles().iconAt(item);
+        void populateFrom(Icon ic) {
             if (ic != null) {
                 getItemImage().setImageBitmap(General.iconToBitmap(ic));
             }

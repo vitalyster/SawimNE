@@ -1,13 +1,13 @@
-
-
 package sawim.search;
 
 import android.graphics.Bitmap;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.view.MenuItem;
-import sawim.ui.text.VirtualListModel;
-import sawim.ui.text.VirtualList;
+import ru.sawim.activities.SawimActivity;
+import sawim.ExternalApi;
+import ru.sawim.models.list.VirtualListModel;
+import ru.sawim.models.list.VirtualList;
 import DrawControls.icons.*;
 import sawim.SawimException;
 import sawim.comm.Util;
@@ -56,7 +56,22 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
         VirtualList textList = VirtualList.getInstance();
         textList.setCaption(localName);
         setProfileView(textList);
+        if (!searchResult) {
+            addMenu();
+        }
         profileView.setModel(new VirtualListModel());
+        profileView.setClickListListener(new VirtualList.OnClickListListener() {
+            @Override
+            public void itemSelected(int position) {
+
+            }
+
+            @Override
+            public boolean back() {
+                profileView.clearAll();
+                return true;
+            }
+        });
     }
     public void showProfile() {
         profileView.show();
@@ -95,9 +110,6 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
             if (hasAvatarItem) {
                 protocol.getAvatar(this);
             }
-        }
-        if (!searchResult) {
-            addMenu();
         }
         profileView.setModel(profile);
     }
@@ -169,7 +181,8 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
                         break;
 
                     case INFO_MENU_TAKE_AVATAR:
-                        ru.sawim.activities.SawimActivity.getInstance().startCamera(UserInfo.this, 640, 480);
+                        ExternalApi.instance.setActivity(SawimActivity.getInstance());
+                        ExternalApi.instance.startCamera(UserInfo.this, 640, 480);
                         break;
 
                     case INFO_MENU_REMOVE_AVATAR:
@@ -201,30 +214,6 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
         isEditable |= (protocol instanceof Jabber);
         return isEditable && protocol.getUserId().equals(uin)
                 && protocol.isConnected();
-    }
-
-    public void action(int cmd) {
-        switch (cmd) {
-            case INFO_MENU_EDIT:
-                new EditInfo(protocol, this).init().show();
-                break;
-            
-            case INFO_MENU_TAKE_AVATAR:
-                ru.sawim.activities.SawimActivity.getInstance().startCamera(this, 640, 480);
-                break;
-
-            case INFO_MENU_REMOVE_AVATAR:
-                removeAvatar();
-                protocol.saveUserInfo(this);
-                updateProfileView();
-                break;
-
-            case INFO_MENU_ADD_AVATAR:
-                FileBrowser fsBrowser = new FileBrowser(false);
-                fsBrowser.setListener(this);
-                fsBrowser.activate();
-                break;
-        }
     }
 
     private Icon getStatusAsIcon() {

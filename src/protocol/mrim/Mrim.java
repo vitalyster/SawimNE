@@ -1,8 +1,7 @@
 package protocol.mrim;
 
-import protocol.net.TcpSocket;
 import ru.sawim.activities.SawimActivity;
-import sawim.ui.text.VirtualList;
+import ru.sawim.models.list.VirtualList;
 import DrawControls.icons.*;
 import java.io.*;
 import java.util.Vector;
@@ -11,12 +10,9 @@ import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.search.*;
-import sawim.ui.text.VirtualListModel;
+import ru.sawim.models.list.VirtualListModel;
 import sawim.util.JLocale;
 import protocol.*;
-
-import javax.microedition.io.Connector;
-import javax.microedition.io.HttpConnection;
 
 public class Mrim extends Protocol {
     private MrimConnection connection = null;
@@ -24,7 +20,7 @@ public class Mrim extends Protocol {
     private static final ImageList statusIcons = ImageList.createImageList("/mrim-status.png");
     private static final int[] statusIconIndex = {1, 0, 3, 4, -1, -1, -1, -1, -1, -1, 5, -1, 2, -1, 1};
 
-    static Icon getPhoneContactIcon() {
+    public static Icon getPhoneContactIcon() {
         int phoneContactIndex = statusIconIndex[StatusInfo.STATUS_OFFLINE];
         if (6 < statusIcons.size()) {
             phoneContactIndex = statusIcons.size() - 1;

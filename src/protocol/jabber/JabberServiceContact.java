@@ -1,28 +1,22 @@
-
-
-
 package protocol.jabber;
 
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.SubMenu;
-import ru.sawim.activities.SawimActivity;
-import sawim.Options;
-import sawim.chat.Chat;
-import sawim.chat.message.Message;
-import sawim.chat.message.SystemNotice;
-import sawim.cl.ContactList;
-import sawim.comm.StringConvertor;
-import sawim.modules.tracking.Tracking;
-import sawim.util.JLocale;
 import protocol.Contact;
 import protocol.ContactMenu;
 import protocol.Protocol;
 import protocol.StatusInfo;
 import ru.sawim.R;
+import ru.sawim.activities.SawimActivity;
+import sawim.Options;
+import sawim.chat.message.SystemNotice;
+import sawim.cl.ContactList;
+import sawim.comm.StringConvertor;
+import sawim.modules.tracking.Tracking;
+import sawim.util.JLocale;
 
 import java.util.Vector;
-
 
 public class JabberServiceContact extends JabberContact {
     public static final int GATE_CONNECT = 0;
@@ -34,53 +28,24 @@ public class JabberServiceContact extends JabberContact {
     public static final int CONFERENCE_OPTIONS = 6;
     public static final int CONFERENCE_OWNER_OPTIONS = 7;
     public static final int CONFERENCE_ADD = 9;
-	public static final int GATE_COMMANDS = 10;
-	public static final int COMMAND_TITLE = 20; 
-
+    public static final int GATE_COMMANDS = 10;
+    public static final int COMMAND_TITLE = 20;
+    public static final byte AFFILIATION_NONE = (byte) 0;
+    public static final byte AFFILIATION_MEMBER = (byte) 1;
+    public static final byte AFFILIATION_ADMIN = (byte) 2;
+    public static final byte AFFILIATION_OWNER = (byte) 3;
+    public static final byte ROLE_VISITOR = (byte) -1;
+    public static final byte ROLE_PARTICIPANT = (byte) 0;
+    public static final byte ROLE_MODERATOR = (byte) 1;
+    public boolean warning = false;
     private boolean isPrivate;
     private boolean isConference;
     private boolean isGate;
-	public boolean warning = false;
-
     private boolean autojoin;
     private String password;
     private String myNick;
-
     private String baseMyNick;
 
-    public static final byte AFFILIATION_NONE = (byte)0;
-    public static final byte AFFILIATION_MEMBER = (byte)1;
-    public static final byte AFFILIATION_ADMIN = (byte)2;
-    public static final byte AFFILIATION_OWNER = (byte)3;
-
-    public static final byte ROLE_VISITOR = (byte)-1;
-    public static final byte ROLE_PARTICIPANT = (byte)0;
-    public static final byte ROLE_MODERATOR = (byte)1;
-	public static final int getAffiliationName(byte index){
-        switch (index) {
-            case AFFILIATION_OWNER: return 0;
-            case AFFILIATION_ADMIN: return 1;
-            case AFFILIATION_MEMBER: return 2;
-            
-			case AFFILIATION_NONE: return 3;
-        }
-        return 0;
-    };
-
-    public void setAutoJoin(boolean auto) {
-        autojoin = auto;
-    }
-    public boolean isAutoJoin() {
-        return autojoin;
-    }
-
-    public void setPassword(String pass) {
-        password = pass;
-    }
-    public String getPassword() {
-        return password;
-    }
-    
     public JabberServiceContact(String jid, String name) {
         super(jid, name);
 
@@ -104,21 +69,61 @@ public class JabberServiceContact extends JabberContact {
             }
         }
     }
-    
+
+    public static final int getAffiliationName(byte index) {
+        switch (index) {
+            case AFFILIATION_OWNER:
+                return 0;
+            case AFFILIATION_ADMIN:
+                return 1;
+            case AFFILIATION_MEMBER:
+                return 2;
+
+            case AFFILIATION_NONE:
+                return 3;
+        }
+        return 0;
+    }
+
+    ;
+
+    public boolean isAutoJoin() {
+        return autojoin;
+    }
+
+    public void setAutoJoin(boolean auto) {
+        autojoin = auto;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String pass) {
+        password = pass;
+    }
+
     public void setXStatus(String id, String text) {
     }
 
     public boolean isSingleUserContact() {
         return isPrivate || isGate;
     }
+
     public boolean isConference() {
         return isConference;
     }
+
     public boolean isVisibleInContactList() {
-        if (ContactList.getInstance().getManager().getCurrPage() != 1/*!Options.getBoolean(Options.OPTION_CL_HIDE_OFFLINE)*/) return true;
-        return isConference() || isGate ? super.isVisibleInContactList() : true; 
+        if (ContactList.getInstance().getManager().getCurrPage() != 1/*!Options.getBoolean(Options.OPTION_CL_HIDE_OFFLINE)*/)
+            return true;
+        return isConference() || isGate ? super.isVisibleInContactList() : true;
     }
-    
+
+    public String getMyName() {
+        return (isConference || isPrivate) ? myNick : null;
+    }
+
     public final void setMyName(String nick) {
         if (!StringConvertor.isEmpty(nick)) {
             myNick = nick;
@@ -127,28 +132,27 @@ public class JabberServiceContact extends JabberContact {
             }
         }
     }
-    public String getMyName() {
-        return (isConference || isPrivate) ? myNick : null;
-    }
-
 
     void doJoining() {
         setStatus(StatusInfo.STATUS_AWAY, "");
     }
-	
-	public byte isPresence() {
-		if (Tracking.isTracking(getUserId(), Tracking.GLOBAL) == Tracking.TRUE) {
-      		if (Tracking.beginTrackActionItem(this, Tracking.ACTION_PRESENCE) == Tracking.TRUE) {
-			    return Tracking.TRUE;
-			}
-		}
-		return Tracking.FALSE;
-	}
-	private void addPresence(Jabber jabber, Message message) {
-	    Chat chat = jabber.getChat(this);
-        chat.addMessage(message, false);
-	}
-	
+
+    public byte isPresence() {
+        if (Tracking.isTracking(getUserId(), Tracking.GLOBAL) == Tracking.TRUE) {
+            if (Tracking.beginTrackActionItem(this, Tracking.ACTION_PRESENCE) == Tracking.TRUE) {
+                return Tracking.TRUE;
+            }
+        }
+        return Tracking.FALSE;
+    }
+
+    public void addPresence(Jabber jabber, String nick, String text) {
+        if (isPresence() != (byte) 1)
+            return;
+        jabber.getChat(this).addPresence(new SystemNotice(jabber,
+                SystemNotice.SYS_NOTICE_PRESENCE, getUserId(), nick, text));
+    }
+
     void nickChainged(Jabber jabber, String oldNick, String newNick) {
         if (isConference) {
             if (baseMyNick.equals(oldNick)) {
@@ -156,41 +160,37 @@ public class JabberServiceContact extends JabberContact {
                 baseMyNick = newNick;
             }
             String jid = Jid.realJidToSawimJid(getUserId() + "/" + oldNick);
-            JabberServiceContact c = (JabberServiceContact)jabber.getItemByUIN(jid);
+            JabberServiceContact c = (JabberServiceContact) jabber.getItemByUIN(jid);
             if (null != c) {
                 c.nickChainged(jabber, oldNick, newNick);
             }
-
         } else if (isPrivate) {
             userId = Jid.getBareJid(userId) + "/" + newNick;
             setName(newNick + "@" + Jid.getNick(getUserId()));
             setOfflineStatus();
         }
     }
+
     void nickOnline(Jabber jabber, String nick, String tempRang, String tempRole, String role_Xstatus) {
         if (hasChat()) {
             jabber.getChat(this).setWritable(canWrite());
         }
-		if (myNick.equals(nick)) {
-           
-			JabberContact.SubContact c = getContact(getMyName());
+        if (myNick.equals(nick)) {
+            JabberContact.SubContact c = getContact(getMyName());
             setStatus(c.status, getStatusText());
             jabber.addRejoin(getUserId());
         }
-		SubContact sc = getExistSubContact(nick);
+        SubContact sc = getExistSubContact(nick);
         if (null != sc) {
-            //showTopLine(nick + ": " + jabber.getStatusInfo().getName(sc.status));
-			
-			if (isPresence() == (byte)1) {
-			StringBuffer prsnsText = new StringBuffer(0);
-			
-                    prsnsText.append("/me ").append(": ").append(jabber.getStatusInfo().getName(sc.status)).append(" ");
-					prsnsText.append(tempRang).append("/").append(tempRole).append(" ").append(role_Xstatus); 
-                    addPresence(jabber, new SystemNotice(jabber, 
-                        SystemNotice.SYS_NOTICE_PRESENCE, getUserId(), nick, prsnsText.toString()));
+            if (isPresence() == (byte) 1) {
+                StringBuffer prsnsText = new StringBuffer(0);
+                prsnsText.append(": ").append(jabber.getStatusInfo().getName(sc.status)).append(" ");
+                prsnsText.append(tempRang).append("/").append(tempRole).append(" ").append(role_Xstatus);
+                addPresence(jabber, nick, prsnsText.toString());
             }
         }
     }
+
     void nickError(Jabber jabber, String nick, int code, String reasone) {
         boolean isConnected = (StatusInfo.STATUS_ONLINE == getStatusIndex());
         if (409 == code) {
@@ -202,16 +202,13 @@ public class JabberServiceContact extends JabberContact {
                 myNick = baseMyNick;
                 return;
             }
-
         } else {
             jabber.addMessage(new SystemNotice(jabber,
                     SystemNotice.SYS_NOTICE_ERROR, getUserId(), reasone));
         }
-
         if (myNick.equals(nick)) {
             if (isConnected) {
                 jabber.leave(this);
-
             } else {
                 nickOffline(jabber, nick, 0, "", "");
             }
@@ -219,20 +216,22 @@ public class JabberServiceContact extends JabberContact {
             nickOffline(jabber, nick, 0, "", "");
         }
     }
-	private void playSoundEye() {
-		String id = getUserId();
-		if (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE) {
-		    if (Tracking.isTracking(id, Tracking.EVENT_ENTER) == Tracking.TRUE) {
+
+    private void playSoundEye() {
+        String id = getUserId();
+        if (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE) {
+            if (Tracking.isTracking(id, Tracking.EVENT_ENTER) == Tracking.TRUE) {
                 if (Tracking.beginTrackActionItem(this, Tracking.SOUND_EYE) == Tracking.TRUE) {
-				    
-				}
-		    }
+
+                }
+            }
         } else if (Tracking.isTracking(id, Tracking.EVENT_ENTER) == Tracking.FALSE) {
-	    }
+        }
     }
+
     void nickOffline(Jabber jabber, String nick, int code, String reasone, String presenceUnavailable) {
-		StringBuffer textPresence = new StringBuffer();
-		textPresence.append("/me ").append(": ").append(jabber.getStatusInfo().getName(StatusInfo.STATUS_OFFLINE)).append(" ").append(presenceUnavailable); 
+        StringBuffer textPresence = new StringBuffer();
+        textPresence.append(": ").append(jabber.getStatusInfo().getName(StatusInfo.STATUS_OFFLINE)).append(" ").append(presenceUnavailable);
         if (getMyName().equals(nick)) {
             if (isOnline()) {
                 jabber.removeRejoin(getUserId());
@@ -240,18 +239,8 @@ public class JabberServiceContact extends JabberContact {
             String text = null;
             if (301 == code) {
                 text = "you_was_baned";
-				textPresence.append(JLocale.getString("you_was_baned")).append(" ").append(reasone);
-				
-                //sawim.modules.MagicEye.addAction(getProtocol(), getUserId(), nick + " was baned", reasone);
-				
-                playSoundEye();
             } else if (307 == code) {
                 text = "you_was_kicked";
-				textPresence.append(JLocale.getString("you_was_kicked")).append(" ").append(reasone);
-				
-                //sawim.modules.MagicEye.addAction(getProtocol(), getUserId(), nick + " was kicked", reasone);
-				
-                playSoundEye();
             } else if (404 == code) {
                 text = "error";
             }
@@ -261,16 +250,19 @@ public class JabberServiceContact extends JabberContact {
                     text += " (" + reasone + ")";
                 }
                 text += '.';
+                playSoundEye();
+                textPresence.append(text).append(" ").append(reasone);
+                sawim.modules.MagicEye.addAction(getProtocol(), getUserId(), nick + " " + text, reasone);
                 jabber.addMessage(new SystemNotice(jabber,
                         SystemNotice.SYS_NOTICE_ERROR, getUserId(), text));
             }
             for (int i = 0; i < subcontacts.size(); ++i) {
-                ((SubContact)subcontacts.elementAt(i)).status = StatusInfo.STATUS_OFFLINE;
+                ((SubContact) subcontacts.elementAt(i)).status = StatusInfo.STATUS_OFFLINE;
             }
             String startUin = getUserId() + '/';
             Vector contactList = jabber.getContactItems();
             for (int i = contactList.size() - 1; 0 <= i; --i) {
-                Contact c = (Contact)contactList.elementAt(i);
+                Contact c = (Contact) contactList.elementAt(i);
                 if (c.getUserId().startsWith(startUin)) {
                     c.setOfflineStatus();
                 }
@@ -288,35 +280,15 @@ public class JabberServiceContact extends JabberContact {
             }
             if (null != event) {
                 event = JLocale.getString(event);
-				textPresence.append(event).append(" ").append(reasone);
-				
-                //sawim.modules.MagicEye.addAction(jabber, getUserId(), nick + " " + event, reasone);
-				
+                textPresence.append(event).append(" ").append(reasone);
+                sawim.modules.MagicEye.addAction(jabber, getUserId(), nick + " " + event, reasone);
             }
-        
         }
-			if (isPresence() == (byte)1) {
-                addPresence(jabber, new SystemNotice(jabber,               
-                    SystemNotice.SYS_NOTICE_PRESENCE, getUserId(), nick, textPresence.toString()));                    
-			}
+        addPresence(jabber, nick, textPresence.toString());
         if (hasChat()) {
             jabber.getChat(this).setWritable(canWrite());
         }
-        //showTopLine(nick + ": " + jabber.getStatusInfo().getName(StatusInfo.STATUS_OFFLINE));
     }
-	
-	void presence(String nick, int statusCode, String changedNick) {
-		if (isPresence() == (byte)0) {
-		    return;
-		}
-		String text = null;
-		if (303 == statusCode) {
-            text = ("/me " + ": " + JLocale.getString("change_nick") + " " + changedNick);
-        }
-		if (text != null) {
-		    getProtocol().addMessage(new SystemNotice(getProtocol(), SystemNotice.SYS_NOTICE_PRESENCE, getUserId(), nick, text));                       
-		}
-	}
 
     String getRealJid(String nick) {
         SubContact sc = getExistSubContact(nick);
@@ -332,8 +304,9 @@ public class JabberServiceContact extends JabberContact {
         }
         return null;
     }
+
     public void setSubject(String subject) {
-		JabberContact.SubContact c = getContact(getMyName());
+        JabberContact.SubContact c = getContact(getMyName());
         if (isConference && isOnline()) {
             setStatus(c.status, subject);
         }
@@ -344,14 +317,14 @@ public class JabberServiceContact extends JabberContact {
             return null;
         }
         for (int i = 0; i < subcontacts.size(); ++i) {
-            JabberContact.SubContact contact = (JabberContact.SubContact)subcontacts.elementAt(i);
+            JabberContact.SubContact contact = (JabberContact.SubContact) subcontacts.elementAt(i);
             if (nick.equals(contact.resource)) {
                 return contact;
             }
         }
         return null;
     }
-    
+
     protected void initContextMenu(Protocol protocol, ContextMenu contactMenu) {
         if (isGate) {
             if (isOnline()) {
@@ -370,19 +343,21 @@ public class JabberServiceContact extends JabberContact {
             } else {
                 contactMenu.add(Menu.FIRST, CONFERENCE_CONNECT, 2, R.string.connect);
             }
-            if (!isOnline()) {//////
+            if (!isOnline()) {//
                 contactMenu.add(Menu.FIRST, USER_MENU_USERS_LIST, 2, R.string.list_of_users);
             }
             contactMenu.add(Menu.FIRST, CONFERENCE_OPTIONS, 2, R.string.options);
             if (isOnline()) {
                 SubContact my = getContact(getMyName());
-                if ((null != my) && (AFFILIATION_OWNER == my.priorityA)) {
-                    contactMenu.add(Menu.FIRST, CONFERENCE_OWNER_OPTIONS, 2, R.string.owner_options);
+                if (null != my) {
+                    if (AFFILIATION_OWNER == my.priorityA) {
+                        contactMenu.add(Menu.FIRST, CONFERENCE_OWNER_OPTIONS, 2, R.string.owner_options);
+                    }
+                    if (AFFILIATION_ADMIN <= my.priorityA) {
+                        contactMenu.add(Menu.FIRST, Jabber.CONFERENCE_AFFILIATION_LIST, 2, R.string.conf_aff_list);
+                        contactMenu.add(Menu.FIRST, COMMAND_TITLE, 2, R.string.set_theme_conference);
+                    }
                 }
-				if (AFFILIATION_ADMIN <= my.priorityA) {
-                    contactMenu.add(Menu.FIRST, Jabber.CONFERENCE_AFFILIATION_LIST, 2, R.string.conf_aff_list);
-                    contactMenu.add(Menu.FIRST, COMMAND_TITLE, 2, R.string.set_theme_conference);
-				}
             }
             contactMenu.add(Menu.FIRST, USER_MENU_TRACK_CONF, 2, R.string.extra_settings);
         }
@@ -406,6 +381,7 @@ public class JabberServiceContact extends JabberContact {
             initManageContactMenu(protocol, manageContact);
         }
     }
+
     protected void initManageContactMenu(Protocol protocol, SubMenu menu) {
         if (protocol.isConnected()) {
             if (isOnline() && isPrivate) {
@@ -450,6 +426,7 @@ public class JabberServiceContact extends JabberContact {
         }
         return !isPrivate;
     }
+
     public void activate(Protocol p) {
         if (isOnline() || isPrivate || hasChat()) {
             super.activate(p);
@@ -460,7 +437,7 @@ public class JabberServiceContact extends JabberContact {
     }
 
     public boolean hasHistory() {
-		return Options.getBoolean(Options.OPTION_HISTORY) && Tracking.isTracking(getUserId(), Tracking.EVENT_ENTER) == Tracking.TRUE;
+        return Options.getBoolean(Options.OPTION_HISTORY) && Tracking.isTracking(getUserId(), Tracking.EVENT_ENTER) == Tracking.TRUE;
     }
 
     public final void setPrivateContactStatus(JabberServiceContact conf) {

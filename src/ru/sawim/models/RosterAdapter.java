@@ -1,14 +1,22 @@
 package ru.sawim.models;
 
+import DrawControls.icons.Icon;
 import DrawControls.tree.TreeNode;
 import DrawControls.tree.VirtualContactList;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.ImageView;
+import android.widget.TextView;
 import protocol.Contact;
 import protocol.Group;
+import ru.sawim.General;
 import ru.sawim.R;
+import ru.sawim.Scheme;
+import sawim.chat.ChatHistory;
+import sawim.chat.message.Message;
+
 import java.util.List;
 
 /**
@@ -20,14 +28,19 @@ import java.util.List;
  */
 public class RosterAdapter extends BaseAdapter {
 
-    VirtualContactList vcl;
+    public static final int ALL_CONTACTS = 0;
+    public static final int ONLINE_CONTACTS = 1;
+    public static final int OPEN_CHATS = 2;
+    private VirtualContactList vcl;
     private List<TreeNode> items;
     private LayoutInflater mInflater;
+    private int type;
 
-    public RosterAdapter(LayoutInflater inf, VirtualContactList vcl, List<TreeNode> drawItems) {
+    public RosterAdapter(LayoutInflater inf, VirtualContactList vcl, List<TreeNode> drawItems, int type) {
         mInflater = inf;
         this.vcl = vcl;
         items = drawItems;
+        this.type = type;
     }
 
     @Override
@@ -42,7 +55,9 @@ public class RosterAdapter extends BaseAdapter {
 
     @Override
     public TreeNode getItem(int i) {
-        return items.get(i);
+        if ((items.size() > i) && (i >= 0))
+            return items.get(i);
+        return null;
     }
 
     @Override
@@ -52,20 +67,82 @@ public class RosterAdapter extends BaseAdapter {
 
     @Override
     public View getView(int i, View convertView, ViewGroup viewGroup) {
-        TreeNode o = items.get(i);
-        ViewHolderRoster holder;
-        if (convertView == null) {
-            convertView = mInflater.inflate(R.layout.roster_item, null);
-            holder = new ViewHolderRoster(vcl, convertView);
-            convertView.setTag(holder);
+        TreeNode o = getItem(i);
+        if (type == ONLINE_CONTACTS && o.isContact()) {
+            Contact c = (Contact) o;
+            ViewHolderRoster holder;
+            if (convertView == null) {
+                convertView = mInflater.inflate(R.layout.roster_item, null);
+                holder = new ViewHolderRoster(vcl, convertView);
+                convertView.setTag(holder);
+            } else {
+                holder = (ViewHolderRoster) convertView.getTag();
+            }
+            if (c.isVisibleInContactList())
+                holder.populateFromContact(c);
+        } else if (type == OPEN_CHATS) {
+            ItemWrapper wr;
+            if (convertView == null) {
+                convertView = mInflater.inflate(R.layout.roster_chats, null);
+                wr = new ItemWrapper(convertView);
+                convertView.setTag(wr);
+            } else {
+                wr = (ItemWrapper) convertView.getTag();
+            }
+            if (o.isContact())
+                wr.populateFrom((Contact) o);
         } else {
-            holder = (ViewHolderRoster) convertView.getTag();
-        }
-        if (o instanceof Group) {
-            holder.populateFromGroup((Group) o);
-        } else if (o instanceof Contact) {
-            holder.populateFromContact((Contact) o);
+            ViewHolderRoster holder;
+            if (convertView == null) {
+                convertView = mInflater.inflate(R.layout.roster_item, null);
+                holder = new ViewHolderRoster(vcl, convertView);
+                convertView.setTag(holder);
+            } else {
+                holder = (ViewHolderRoster) convertView.getTag();
+            }
+            if (o != null)
+                if (o.isGroup()) {
+                    holder.populateFromGroup((Group) o);
+                } else if (o.isContact()) {
+                    holder.populateFromContact((Contact) o);
+                }
         }
         return convertView;
+    }
+
+    static class ItemWrapper {
+        View item = null;
+        private TextView itemName = null;
+        private ImageView itemImage = null;
+
+        public ItemWrapper(View item) {
+            this.item = item;
+        }
+
+        void populateFrom(Contact item) {
+            TextView itemName = getItemName();
+            itemName.setText(item.getName());
+            itemName.setTextColor(General.getColor(Scheme.THEME_CONTACT_WITH_CHAT));
+            Icon icMess = Message.msgIcons.iconAt(item.getUnreadMessageIcon());
+            if (icMess == null) {
+                getItemImage().setImageBitmap(General.iconToBitmap(item.getProtocol().getStatusInfo().getIcon(item.getStatusIndex())));
+            } else {
+                getItemImage().setImageBitmap(General.iconToBitmap(icMess));
+            }
+        }
+
+        public ImageView getItemImage() {
+            if (itemImage == null) {
+                itemImage = (ImageView) item.findViewById(R.id.image);
+            }
+            return itemImage;
+        }
+
+        public TextView getItemName() {
+            if (itemName == null) {
+                itemName = (TextView) item.findViewById(R.id.item_name);
+            }
+            return itemName;
+        }
     }
 }

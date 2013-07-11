@@ -5,20 +5,20 @@ import java.util.Vector;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.view.MenuItem;
+import ru.sawim.Scheme;
 import ru.sawim.models.form.VirtualListItem;
+import ru.sawim.models.list.VirtualList;
+import ru.sawim.models.list.VirtualListModel;
 import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 
-import sawim.ui.TextBoxListener;
-import sawim.ui.base.*;
 import sawim.util.JLocale;
 import sawim.comm.*;
-import sawim.ui.text.*;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
 import ru.sawim.view.TextBoxView;
 
-public final class AffiliationListConf implements FormListener, TextBoxListener {
+public final class AffiliationListConf implements FormListener, TextBoxView.TextBoxListener {
     
     private Jabber jabber;
     private String serverJid;
@@ -34,7 +34,8 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
     private static final int COMMAND_ADD = 0;
     private static final int COMMAND_SEARCH = 1;
 
-    public AffiliationListConf() {
+    public void init(Jabber protocol) {
+        jabber = protocol;
         searchBox = new TextBoxView();
         screen.setCaption(JLocale.getString("conf_aff_list"));
         screen.setModel(model);
@@ -47,6 +48,7 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
 
             @Override
             public boolean back() {
+                screen.clearAll();
                 return true;
             }
         });
@@ -72,10 +74,6 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
                 }
             }
         });
-    }
-
-    public void init(Jabber protocol) {
-        jabber = protocol;
     }
 	
 	private int getJidIndex(int textIndex) {
@@ -137,7 +135,6 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
 		reasons.removeAllElements();
         descriptions.removeAllElements();
         addServer(true);
-        screen.updateModel();
     }
     
     public void addItem(String reasone, String jid) {
@@ -154,9 +151,6 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
         model.addPar(item);
         jids.addElement(jid);
 		reasons.addElement(reasone);
-        if (0 == (jids.size() % 50)) {
-            screen.updateModel();
-        }
     }
 
     public void showIt() {
@@ -164,10 +158,6 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
             setServer("", "");
         }
         screen.show();
-    }
-
-    public void update() {
-        screen.updateModel();
     }
 
     public void setServer(String jid, String myN) {
@@ -179,7 +169,6 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
         wait.addDescription(JLocale.getString("wait"),
                 Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
         model.addPar(wait);
-        screen.updateModel();
     }
     
 	private void setCurrTextIndex(int textIndex) {
@@ -235,8 +224,7 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
 		}
 	}
 	private void showOptionsForm(String jid, String reason) {
-        enterData = Forms.getInstance();
-        enterData.init("conf_aff_list", this);
+        enterData = new Forms("conf_aff_list", this);
         enterData.addTextField(JID, "jid", jid);
         enterData.addSelector(AFFILIATION, "affiliation", affiliationList, getAffiliation()); 
 		enterData.addTextField(REASON, "reason", reason);
@@ -254,9 +242,8 @@ public final class AffiliationListConf implements FormListener, TextBoxListener 
 				        reason);
 				} catch (Exception e) {}
 				ContactList.getInstance().activate();
-            } else {
-                enterData.back();
             }
+            enterData.back();
             enterData = null;
         }
 	}

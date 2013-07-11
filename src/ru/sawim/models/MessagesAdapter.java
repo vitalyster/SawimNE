@@ -2,8 +2,7 @@ package ru.sawim.models;
 
 import DrawControls.icons.Icon;
 import android.content.Context;
-import android.text.SpannableStringBuilder;
-import android.text.util.Linkify;
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +15,7 @@ import sawim.TextFormatter;
 import sawim.chat.Chat;
 import sawim.chat.MessData;
 import sawim.chat.message.Message;
-import sawim.ui.base.Scheme;
+import ru.sawim.Scheme;
 
 import java.util.List;
 
@@ -55,26 +54,28 @@ public class MessagesAdapter extends BaseAdapter {
     }
 
     @Override
-    public View getView(int i, View convertView, ViewGroup viewGroup) {
+    public View getView(int index, View convertView, ViewGroup viewGroup) {
         View row = convertView;
+        ViewHolder holder;
         if (row == null) {
             LayoutInflater inf = LayoutInflater.from(baseContext);
             row = inf.inflate(R.layout.chat_item, null);
+            holder = new ViewHolder();
+            holder.msgImage = (ImageView) row.findViewById(R.id.msg_icon);
+            holder.msgNick = (TextView) row.findViewById(R.id.msg_nick);
+            holder.msgTime = (TextView) row.findViewById(R.id.msg_time);
+            holder.msgText = (TextView) row.findViewById(R.id.msg_text);
+            row.setTag(holder);
         } else {
-            row = convertView;
+            holder = (ViewHolder) row.getTag();
         }
-        populateFrom(row, i);
-        return row;
-    }
-
-    void populateFrom(View item, int index) {
+        ((ViewGroup)row).setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         MessData mData = items.get(index);
         String text = mData.getText();
-        ImageView msgImage = (ImageView) item.findViewById(R.id.msg_icon);
-        TextView msgNick = (TextView) item.findViewById(R.id.msg_nick);
-        TextView msgTime = (TextView) item.findViewById(R.id.msg_time);
-        TextView msgText = (TextView) item.findViewById(R.id.msg_text);
-
+        ImageView msgImage = holder.msgImage;
+        TextView msgNick = holder.msgNick;
+        TextView msgTime = holder.msgTime;
+        TextView msgText = holder.msgText;
         byte bg;
         if (mData.isService()) {
             bg = Scheme.THEME_CHAT_BG_SYSTEM;
@@ -83,20 +84,27 @@ public class MessagesAdapter extends BaseAdapter {
         } else {
             bg = mData.isIncoming() ? Scheme.THEME_CHAT_BG_IN_ODD : Scheme.THEME_CHAT_BG_OUT_ODD;
         }
-        item.setBackgroundColor(General.getColor(bg));
-
+        row.setBackgroundColor(General.getColor(bg));
+        if (mData.fullText == null) {
+            mData.fullText = TextFormatter.getFormattedText(text, baseContext);
+        }
         if (mData.isMe()) {
             msgImage.setVisibility(ImageView.GONE);
             msgNick.setVisibility(TextView.GONE);
             msgTime.setVisibility(TextView.GONE);
-            int color = General.getColor(mData.isIncoming() ? Scheme.THEME_CHAT_INMSG : Scheme.THEME_CHAT_OUTMSG);
-            if (mData.fullMeText == null)
-                mData.fullMeText = TextFormatter.getFormattedText(text, baseContext, color);
-            msgText.setText("* " + mData.getNick() + " " + mData.fullMeText);
-            msgText.setTextSize(14);
+            msgText.setText("* " + mData.getNick() + " " + mData.fullText);
+            msgText.setTextColor(General.getColor(mData.isIncoming() ? Scheme.THEME_CHAT_INMSG : Scheme.THEME_CHAT_OUTMSG));
+            msgText.setTextSize(17);
+        } else if (mData.isPresence()) {
+            msgImage.setVisibility(ImageView.GONE);
+            msgNick.setVisibility(TextView.GONE);
+            msgTime.setVisibility(TextView.GONE);
+            msgText.setText(mData.getNick() + mData.fullText);
+            msgText.setTextColor(General.getColor(Scheme.THEME_CHAT_INMSG));
+            msgText.setTextSize(17);
         } else {
             if (mData.iconIndex != Message.ICON_NONE) {
-                Icon icon = Message.msgIcons.iconAt(chat.getIcon(mData.getMessage(), mData.isIncoming()));
+                Icon icon = Message.msgIcons.iconAt(mData.iconIndex);
                 if (icon == null) {
                     msgImage.setVisibility(ImageView.GONE);
                 } else {
@@ -108,20 +116,31 @@ public class MessagesAdapter extends BaseAdapter {
             msgNick.setVisibility(TextView.VISIBLE);
             msgNick.setText(mData.getNick());
             msgNick.setTextColor(General.getColor(mData.isIncoming() ? Scheme.THEME_CHAT_INMSG : Scheme.THEME_CHAT_OUTMSG));
+            msgNick.setTypeface(Typeface.DEFAULT_BOLD);
+            msgNick.setTextSize(18);
 
             msgTime.setVisibility(TextView.VISIBLE);
-            msgTime.setText("(" + mData.strTime + ")");
+            msgTime.setText(mData.strTime);
             msgTime.setTextColor(General.getColor(mData.isIncoming() ? Scheme.THEME_CHAT_INMSG : Scheme.THEME_CHAT_OUTMSG));
+            msgTime.setTextSize(18);
 
             byte color = Scheme.THEME_TEXT;
             if (mData.isIncoming() && !chat.getContact().isSingleUserContact()
                     && Chat.isHighlight(text, chat.getMyName())) {
                 color = Scheme.THEME_CHAT_HIGHLIGHT_MSG;
             }
-            if (mData.fullText == null)
-                mData.fullText = TextFormatter.getFormattedText(text, baseContext, General.getColor(color));
+
             msgText.setText(mData.fullText);
+            msgText.setTextColor(General.getColor(color));
             msgText.setTextSize(18);
         }
+        return row;
+    }
+
+    static class ViewHolder {
+        ImageView msgImage;
+        TextView msgNick;
+        TextView msgTime;
+        TextView msgText;
     }
 }

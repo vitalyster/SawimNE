@@ -1,6 +1,3 @@
-
-
-
 package protocol.jabber;
 
 import android.support.v4.app.FragmentActivity;
@@ -8,20 +5,18 @@ import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import ru.sawim.models.form.VirtualListItem;
-import sawim.ui.TextBoxListener;
-import sawim.ui.text.VirtualList;
+import ru.sawim.models.list.VirtualList;
 import java.util.Vector;
 import sawim.cl.ContactList;
-import sawim.ui.text.VirtualListModel;
+import ru.sawim.models.list.VirtualListModel;
 import sawim.util.JLocale;
 import sawim.comm.*;
-import sawim.ui.base.Scheme;
-//import sawim.ui.text.TextListController;
+import ru.sawim.Scheme;
 import protocol.*;
 import ru.sawim.view.TextBoxView;
 
 
-public final class ServiceDiscovery implements TextBoxListener {
+public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
 
     private boolean isConferenceList = false;
     private int totalCount = 0;
@@ -34,7 +29,7 @@ public final class ServiceDiscovery implements TextBoxListener {
     private Vector jids = new Vector();
 
     private VirtualList screen;
-    private VirtualListModel model;
+    private VirtualListModel model = new VirtualListModel();
 
     private static final int COMMAND_ADD = 0;
     private static final int COMMAND_SET = 1;
@@ -43,12 +38,8 @@ public final class ServiceDiscovery implements TextBoxListener {
     private static final int COMMAND_SET_SERVER = 4;
     private static final int COMMAND_HOME = 5;
 
-    public ServiceDiscovery() {
-        screen = VirtualList.getInstance();
-        model = new VirtualListModel();
-    }
-
     public void init(Jabber protocol) {
+        screen = VirtualList.getInstance();
         jabber = protocol;
         serverBox = new TextBoxView();
         searchBox = new TextBoxView();
@@ -70,7 +61,10 @@ public final class ServiceDiscovery implements TextBoxListener {
 
             @Override
             public boolean back() {
-                if (serverJid == "") return true;
+                if (serverJid == "") {
+                    screen.clearAll();
+                    return true;
+                }
                 setServer("");
                 return false;
             }
@@ -264,6 +258,7 @@ public final class ServiceDiscovery implements TextBoxListener {
             VirtualListItem br = model.createNewParser(false);
             br.addBr();
             model.addPar(br);
+            screen.updateModel();
         }
     }
     private void addBuildInList() {
@@ -271,6 +266,7 @@ public final class ServiceDiscovery implements TextBoxListener {
         VirtualListItem br = model.createNewParser(false);
         br.addBr();
         model.addPar(br);
+        screen.updateModel();
 
         String domain = Jid.getDomain(jabber.getUserId());
         addUnique(JLocale.getString("my_server"), domain);

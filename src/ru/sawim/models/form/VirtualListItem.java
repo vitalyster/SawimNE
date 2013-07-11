@@ -24,7 +24,6 @@ public class VirtualListItem {
     private byte themeTextLabel = -1;
     private byte themeTextDesc = -1;
     private byte font;
-    private boolean textIsSelectable = false;
     private boolean itemSelectable;
 
     public VirtualListItem(boolean itemSelectable) {
@@ -50,15 +49,9 @@ public class VirtualListItem {
         this.font = font;
     }
 
-    public void addDescriptionSelectable(String text, byte themeText, byte font) {
-        textIsSelectable = true;
-        descStr = text;
-        this.themeTextDesc = themeText;
-        this.font = font;
-    }
-
     public void addTextWithSmiles(String text, byte themeText, byte font) {
-        descSpan = TextFormatter.getFormattedText(text, VirtualListActivity.getInstance(), General.getColor(themeText));
+        descSpan = TextFormatter.getFormattedText(text, VirtualListActivity.getInstance());
+        this.themeTextDesc = themeText;
         this.font = font;
     }
 
@@ -100,10 +93,6 @@ public class VirtualListItem {
 
     public Bitmap getImage() {
         return image;
-    }
-
-    public boolean isTextSelectable() {
-        return textIsSelectable;
     }
 
     public void addBr() {

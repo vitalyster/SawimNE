@@ -1,30 +1,26 @@
 package protocol;
 
-import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
 import DrawControls.tree.TreeNode;
 import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.SubMenu;
-import ru.sawim.activities.FormActivity;
 import ru.sawim.view.FileProgressView;
-import sawim.FileTransfer;
-import sawim.Sawim;
+import ru.sawim.General;
 import sawim.Options;
 import sawim.chat.Chat;
-import sawim.chat.message.Message;
 import sawim.cl.ContactList;
 import sawim.comm.Sortable;
 import sawim.comm.StringConvertor;
 import sawim.modules.tracking.Tracking;
-import sawim.ui.base.Scheme;
+import ru.sawim.Scheme;
 import ru.sawim.R;
 
 
-abstract public class Contact implements TreeNode, Sortable {
+abstract public class Contact extends TreeNode implements Sortable {
     public static final ImageList authIcon = ImageList.createImageList("/auth.png");
-    private static final ImageList serverListsIcons = ImageList.createImageList("/serverlists.png");
+    public static final ImageList serverListsIcons = ImageList.createImageList("/serverlists.png");
 
     protected String userId;
     private String name;
@@ -108,7 +104,7 @@ abstract public class Contact implements TreeNode, Sortable {
 
     public void setOfflineStatus() {
         if (isOnline()) {
-            setTimeOfChaingingStatus(Sawim.getCurrentGmtTime());
+            setTimeOfChaingingStatus(General.getCurrentGmtTime());
 			
 			String id = getUserId();
 			if (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE) {
@@ -130,7 +126,7 @@ abstract public class Contact implements TreeNode, Sortable {
     }
     protected final void setStatus(byte statusIndex, String text) {
         if (!isOnline() && (StatusInfo.STATUS_OFFLINE != statusIndex)) {
-            setTimeOfChaingingStatus(Sawim.getCurrentGmtTime());
+            setTimeOfChaingingStatus(General.getCurrentGmtTime());
         }
         status = statusIndex;
         statusText = (StatusInfo.STATUS_OFFLINE == status) ? null : text;
@@ -234,7 +230,6 @@ abstract public class Contact implements TreeNode, Sortable {
     }
 
     public String getMyName() {
-        
         return null;
     }
 
@@ -262,54 +257,22 @@ abstract public class Contact implements TreeNode, Sortable {
         return Scheme.THEME_CONTACT_OFFLINE;
     }
 
-    public void getLeftIcons(Icon[] lIcons) {
-        if (isTyping()) {
-            lIcons[0] = Message.msgIcons.iconAt(Message.ICON_TYPE);
-        } else {
-            lIcons[0] = Message.msgIcons.iconAt(getUnreadMessageIcon());
-        }
-        Protocol protocol = getProtocol();
-        if (null != protocol) {
-            if (null == lIcons[0]) {
-                lIcons[0] = protocol.getStatusInfo().getIcon(getStatusIndex());
-            }
-            if (XStatusInfo.XSTATUS_NONE != getXStatusIndex()) {
-                lIcons[1] = protocol.getXStatusInfo().getIcon(getXStatusIndex());
-            }
-        }
-        if (!isTemp() && !isAuth()) {
-            lIcons[3] = authIcon.iconAt(0);
-        }
-        int privacyList = -1;
-        if (inIgnoreList()) {
-            privacyList = 0;
-        } else if (inInvisibleList()) {
-            privacyList = 1;
-        } else if (inVisibleList()) {
-            privacyList = 2;
-        }
-        lIcons[4] = serverListsIcons.iconAt(privacyList);
-    }
-
-    public final void getRightIcons(Icon[] icons) {
-        Protocol protocol = getProtocol();
-        ClientInfo info = (null != protocol) ? protocol.clientInfo : null;
-        icons[0] = (null != info) ? info.getIcon(clientIndex) : null;
-		String id = getUserId();
-        icons[1] = (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE)?Tracking.getTrackIcon(id):null;
-    }
-
     public final String getText() {
         return name;
     }
 
-    public final int getNodeWeight() {
-        if (!isSingleUserContact()) {
-            return isOnline() ? 9 : 50;
-        }
+     @Override
+     protected int getType() {
+         return TreeNode.CONTACT;
+     }
+
+     public final int getNodeWeight() {
         if (Options.getBoolean(Options.OPTION_SORT_UP_WITH_MSG)
                 && hasUnreadMessage()) {
             return 0;
+        }
+        if (!isSingleUserContact()) {
+            return isOnline() ? 9 : 50;
         }
         int sortType = Options.getInt(Options.OPTION_CL_SORT_BY);
         if (ContactList.SORT_BY_NAME == sortType) {
@@ -321,7 +284,7 @@ abstract public class Contact implements TreeNode, Sortable {
 			}
             switch (sortType) {
                 case ContactList.SORT_BY_STATUS:
-                    
+
                     return 20 + StatusInfo.getWidth(getStatusIndex());
                 case ContactList.SORT_BY_ONLINE:
                     return 20;
@@ -387,12 +350,12 @@ abstract public class Contact implements TreeNode, Sortable {
             menu.add(Menu.FIRST, USER_MENU_TRACK, 2, R.string.extra_settings);
 		}
         if (isSingleUserContact() || isOnline()) {
-            if (sawim.modules.fs.FileSystem.isSupported()) {
+            /*if (sawim.modules.fs.FileSystem.isSupported()) {
                 menu.add(Menu.FIRST, USER_MENU_FILE_TRANS, 2, R.string.ft_name);
             }
             if (FileTransfer.isPhotoSupported()) {
                 menu.add(Menu.FIRST, USER_MENU_CAM_TRANS, 2, R.string.ft_cam);
-            }
+            }*/
             addChatMenuItems(menu);
         }
     }

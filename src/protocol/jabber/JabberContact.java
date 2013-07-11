@@ -1,5 +1,3 @@
-
-
 package protocol.jabber;
 
 import android.view.ContextMenu;
@@ -15,7 +13,6 @@ import protocol.Contact;
 import protocol.Protocol;
 import protocol.StatusInfo;
 import ru.sawim.R;
-
 import java.util.Vector;
 
 
@@ -102,10 +99,6 @@ public class JabberContact extends Contact {
         return getUserId();
     }
 
-	public void showListOfSubcontacts() {
-	    Jabber jabber = (Jabber)getProtocol();
-	    jabber.showListOfSubcontacts(this);
-	}
     public boolean execCommand(Protocol protocol, String msg) {
         final String cmd;
         final String param;
@@ -239,7 +232,6 @@ public class JabberContact extends Contact {
         return currentContact;
     }
 
-
 	public byte subcontactsS() {
 	    if (!isConference() && 1 < subcontacts.size()) {
 	        return (byte)subcontacts.size();
@@ -317,5 +309,3 @@ public class JabberContact extends Contact {
         return !isTemp();
     }
 }
-
-
