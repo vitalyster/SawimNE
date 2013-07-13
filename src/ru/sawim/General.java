@@ -60,15 +60,9 @@ public class General {
                 + Options.getInt(Options.OPTION_LOCAL_OFFSET) * 3600;
     }
 
-    private static void platformRequestUrl(String url) throws ConnectionNotFoundException {
-        if (-1 == url.indexOf(':')) {
-            url = "xmpp:" + url;
-        }
-        if (url.startsWith("xmpp:")) {
-            Search search = ContactList.getInstance().getManager().getCurrentProtocol().getSearchForm();
-            search.show(Util.getUrlWithoutProtocol(url));
-            return;
-        }
+    public static void openUrl(String url) {
+        Search search = ContactList.getInstance().getManager().getCurrentProtocol().getSearchForm();
+        search.show(Util.getUrlWithoutProtocol(url));
     }
 
     public static java.io.InputStream getResourceAsStream(String name) {
@@ -115,7 +109,7 @@ public class General {
             sawim.modules.tracking.Tracking.loadTrackingFromRMS();
         } catch (Exception e) {
             DebugLog.panic("init", e);
-            DebugLog.instance.activate();
+            DebugLog.instance.activateCrashLog();
         }
     }
 
@@ -163,13 +157,6 @@ public class General {
             Thread.sleep(50);
         } catch (Exception e) {
         }
-    }
-
-    public static Bitmap iconToBitmap(Icon icon) {
-        return Bitmap.createBitmap(icon.getImage().getBitmap(), icon.x, icon.y, icon.getWidth(), icon.getHeight());
-    }
-    public static Bitmap imageToBitmap(Image image) {
-        return Bitmap.createBitmap(image.getBitmap(), 0, 0, image.getWidth(), image.getHeight());
     }
 
     public static int getColor(int color) {

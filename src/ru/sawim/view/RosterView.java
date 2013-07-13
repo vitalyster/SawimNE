@@ -142,7 +142,6 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
             public void onPageScrollStateChanged(int state) {
             }
         });
-        update();
     }
 
     @Override
@@ -156,7 +155,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         ((ListView) pages.get(viewPager.getCurrentItem())).setSelection(currentIndex);
     }
 
-    public int getCurrItem() {
+    private int getCurrItem() {
         return ((ListView) pages.get(viewPager.getCurrentItem())).getFirstVisiblePosition();
     }
 
@@ -178,14 +177,13 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         return null;
     }
 
-    public void setExpandFlag(Group node, boolean value) {
+    private void setExpandFlag(Group node, boolean value) {
         setCurrentNode(getCurrentNode());
         node.setExpandFlag(value);
-        updateRoster();
     }
 
     private void rebuildRoster(int pos) {
-        Util.sort(owner.getProtocol(owner.getCurrProtocol()).getSortedContacts());
+        owner.getProtocol(owner.getCurrProtocol()).sort();
         while (!updateQueue.isEmpty()) {
             Group group = (Group) updateQueue.firstElement();
             updateQueue.removeElementAt(0);
@@ -200,7 +198,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
             if (null != current) {
                 if ((current instanceof Contact) && Options.getBoolean(Options.OPTION_USER_GROUPS)) {
                     Contact c = (Contact) current;
-                    Protocol p = /*contactListModel.getContactProtocol(c)*/owner.getCurrentProtocol();
+                    Protocol p = owner.getCurrentProtocol();
                     if (null != p) {
                         Group group = p.getGroupById(c.getGroupId());
                         if (null == group) {
@@ -232,8 +230,17 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
     @Override
     public void onResume() {
         super.onResume();
+        if (owner == null) return;
         if (owner.getProtocolCount() == 0) return;
+        owner.setOnUpdateRoster(this);
         update();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (owner == null) return;
+        owner.setOnUpdateRoster(null);
     }
 
     @Override
@@ -366,13 +373,13 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
                         ImageButton imageBarButtons = new ImageButton(getActivity());
                         if (j == owner.getCurrProtocol())
                             imageBarButtons.setBackgroundColor(General.getColorWithAlpha(Scheme.THEME_BACKGROUND));
-                        imageBarButtons.setImageBitmap(General.iconToBitmap(protocol.getCurrentStatusIcon()));
+                        imageBarButtons.setImageBitmap(protocol.getCurrentStatusIcon().getImage());
                         imageBarButtons.setId(j);
                         imageBarButtons.setOnClickListener(RosterView.this);
                         imageBarButtons.setOnLongClickListener(RosterView.this);
                         Icon messageIcon = ChatHistory.instance.getUnreadMessageIcon(protocol);
                         if (null != messageIcon)
-                            imageBarButtons.setImageBitmap(General.iconToBitmap(messageIcon));
+                            imageBarButtons.setImageBitmap(messageIcon.getImage());
                         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
                         lp.gravity = Gravity.CENTER;
                         imageBarButtons.setLayoutParams(lp);
