@@ -50,7 +50,7 @@ public class ContactMenu implements TextBoxView.TextBoxListener {
 			}
                 
             case Contact.USER_MENU_ADD_USER:
-                protocol.getSearchForm().show(contact.getUserId());
+                protocol.getSearchForm().show(contact.getUserId(), false);
                 break;
 
             case Contact.USER_MENU_USER_REMOVE:
@@ -109,6 +109,7 @@ public class ContactMenu implements TextBoxView.TextBoxListener {
                 items[3] = JLocale.getString("inban");
 				AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(a, R.style.AlertDialogCustom));
                 builder.setTitle(contact.getName());
+                builder.setCancelable(true);
                 builder.setItems(items, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {

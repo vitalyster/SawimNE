@@ -37,6 +37,7 @@ import sawim.comm.StringConvertor;
 import ru.sawim.Scheme;
 import sawim.util.JLocale;
 
+import java.util.Hashtable;
 import java.util.List;
 
 /**
@@ -48,8 +49,6 @@ import java.util.List;
  */
 public class ChatView extends Fragment implements AbsListView.OnScrollListener, General.OnUpdateChat {
 
-    public static final String PASTE_TEXT = "ru.sawim.PASTE_TEXT";
-
     private Chat chat;
     private Protocol protocol;
     private Contact currentContact;
@@ -58,7 +57,6 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
     private EditText messageEditor;
     private boolean sendByEnter;
     private MessagesAdapter adapter;
-    private BroadcastReceiver textReceiver;
     private LinearLayout sidebar;
     private ImageButton usersImage;
     private ListView nickList;
@@ -68,6 +66,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
     private LinearLayout chatBarLayout;
     private LinearLayout chat_viewLayout;
     private MucUsersView mucUsersView;
+    private static Hashtable<String, Integer> positionHash = new Hashtable<String, Integer>();
     private Bitmap usersIcon = ImageList.createImageList("/participants.png").iconAt(0).getImage();
 
     @Override
@@ -88,8 +87,6 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
                 forceGoToChat();
             }
         });
-        updateChatsIcon();
-        registerReceivers();
     }
 
     @Override
@@ -137,6 +134,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
 
         AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(getActivity(), R.style.AlertDialogCustom));
         builder.setTitle(currentContact.getName());
+        builder.setCancelable(true);
         builder.setAdapter(menu, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -211,27 +209,15 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         return super.onContextItemSelected(item);
     }
 
-    private void registerReceivers() {
-        textReceiver = new BroadcastReceiver() {
+    @Override
+    public void pastText(final String text) {
+        SawimApplication.getInstance().runOnUiThread(new Runnable() {
             @Override
-            public void onReceive(Context c, final Intent i) {
-                SawimApplication.getInstance().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        insert(" " + i.getExtras().getString("text") + " ");
-                        showKeyboard();
-                    }
-                });
+            public void run() {
+                insert(" " + text + " ");
+                showKeyboard();
             }
-        };
-        getActivity().registerReceiver(textReceiver, new IntentFilter(PASTE_TEXT));
-    }
-
-    private void unregisterReceivers() {
-        try {
-            getActivity().unregisterReceiver(textReceiver);
-        } catch (java.lang.IllegalArgumentException e) {
-        }
+        });
     }
 
     @Override
@@ -254,36 +240,26 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
 
     public void destroy(Chat chat) {
         General.getInstance().setOnUpdateChat(null);
-        if (chat == null) return;
-        chat.resetUnreadMessages();
-        chat.setVisibleChat(false);
-        unregisterReceivers();
+        if (chat != null) {
+            chat.resetUnreadMessages();
+            chat.setVisibleChat(false);
+            chat = null;
+        }
     }
 
     public void pause(Chat chat) {
         if (chat == null) return;
-            chat.position = chatListView.getFirstVisiblePosition();
+            addLastPosition(chat.getContact().getUserId(), chatListView.getFirstVisiblePosition());
     }
 
     public void resume(final Chat chat) {
         if (chat == null) return;
-        adapter = new MessagesAdapter(getActivity(), chat, messData);
-        chatListView = (MyListView) getActivity().findViewById(R.id.chat_history_list);
-        messageEditor.addTextChangedListener(textWatcher);
-        chatListView.setStackFromBottom(true);
-        chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_NORMAL);
-        chatListView.setOnCreateContextMenuListener(this);
-        chatListView.setOnScrollListener(this);
-        chatListView.setOnItemClickListener(new ChatClick());
-        chatListView.setFocusable(true);
-        chatListView.setCacheColorHint(0x00000000);
-        chatListView.setAdapter(adapter);
         SawimApplication.getInstance().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 int count = chatListView.getCount();
                 int unreadMessages = chat.getUnreadMessageCount();
-                int lastPosition = chat.position + 1;
+                int lastPosition = getLastPosition(chat.getContact().getUserId()) + 1;
                 Log.e("ChatView", "lastPosition "+lastPosition);
                 Log.e("ChatView", "count "+count);
                 if (lastPosition >= 0) {
@@ -300,11 +276,11 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
             }
         });
         chat.resetUnreadMessages();
-        updateChatsIcon();
+        updateChat();
     }
 
     private void forceGoToChat() {
-        chat.position = chatListView.getFirstVisiblePosition();
+        addLastPosition(chat.getContact().getUserId(), chatListView.getFirstVisiblePosition());
         chat.resetUnreadMessages();
         chat.setVisibleChat(false);
         ChatHistory chatHistory = ChatHistory.instance;
@@ -315,7 +291,17 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         }
     }
 
+    private void addLastPosition(String jid, int position) {
+        positionHash.put(jid, position);
+    }
+
+    private int getLastPosition(String jid) {
+        if (positionHash.containsKey(jid)) return positionHash.remove(jid);
+        else return -1;
+    }
+
     public void openChat(Protocol p, Contact c) {
+        chat = null;
         General.getInstance().setOnUpdateChat(null);
         General.getInstance().setOnUpdateChat(this);
         final Activity currentActivity = getActivity();
@@ -324,12 +310,24 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         chat = protocol.getChat(currentContact);
         messData = chat.getMessData();
         messageEditor = (EditText) currentActivity.findViewById(R.id.messageBox);
-        resume(chat);
+        adapter = new MessagesAdapter(getActivity(), chat, messData);
+        chatListView = (MyListView) getActivity().findViewById(R.id.chat_history_list);
+        messageEditor.addTextChangedListener(textWatcher);
+        chatListView.setStackFromBottom(true);
+        chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_NORMAL);
+        chatListView.setOnCreateContextMenuListener(this);
+        chatListView.setOnScrollListener(this);
+        chatListView.setOnItemClickListener(new ChatClick());
+        chatListView.setFocusable(true);
+        chatListView.setCacheColorHint(0x00000000);
+        chatListView.setAdapter(adapter);
         chat.setVisibleChat(true);
 
         contactName.setTextColor(Scheme.getColor(Scheme.THEME_CAP_TEXT));
+		contactName.setTextSize(General.getFontSize());
         contactName.setText(currentContact.getName());
         contactStatus.setTextColor(Scheme.getColor(Scheme.THEME_CAP_TEXT));
+		contactStatus.setTextSize(General.getFontSize());
         contactStatus.setText(ContactList.getInstance().getManager().getStatusMessage(currentContact));
         int background = Scheme.getColorWithAlpha(Scheme.THEME_BACKGROUND);
         chat_viewLayout.setBackgroundColor(background);
@@ -441,10 +439,10 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         if (text.indexOf(',') != text.lastIndexOf(',')) return true;
         // replace one post number to another
         if (what.startsWith("#") && !text.contains(" ")) return false;
-        return !text.endsWith(", ");
+        return true/*!text.endsWith(", ")*/;
     }
 
-    public void resetText() {
+    private void resetText() {
         SawimApplication.getInstance().runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -453,11 +451,11 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         });
     }
 
-    public String getText() {
+    private String getText() {
         return messageEditor.getText().toString();
     }
 
-    public void setText(final String text) {
+    private void setText(final String text) {
         SawimApplication.getInstance().runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -473,7 +471,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         });
     }
 
-    public boolean hasText() {
+    private boolean hasText() {
         return 0 < messageEditor.getText().length();
     }
 
@@ -490,7 +488,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
                 || (EditorInfo.IME_ACTION_SEND == actionId);
     }
 
-    private void updateChatsIcon() {
+    private void updateChatIcon() {
         Icon icMess = ChatHistory.instance.getUnreadMessageIcon();
         if (icMess == null) {
             chatsImage.setVisibility(ImageView.GONE);
@@ -554,7 +552,7 @@ public class ChatView extends Fragment implements AbsListView.OnScrollListener, 
         SawimApplication.getInstance().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                updateChatsIcon();
+                updateChatIcon();
                 boolean scroll = chatListView.isScroll();
                 if (adapter != null) {
                     if (scroll && chatListView.getCount() >= 1) {

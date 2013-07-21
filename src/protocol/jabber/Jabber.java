@@ -553,7 +553,7 @@ public final class Jabber extends Protocol implements FormListener {
             case JabberServiceContact.GATE_ADD:
                 Search s = this.getSearchForm();
                 s.setJabberGate(c.getUserId());
-                s.show("");
+                s.show("", false);
                 break;
 
             case JabberServiceContact.USER_MENU_USERS_LIST:
@@ -562,6 +562,7 @@ public final class Jabber extends Protocol implements FormListener {
                 } else {
                     ServiceDiscovery sd = getServiceDiscovery();
                     sd.setServer(contact.getUserId());
+                    sd.isMucUsers(true);
                     sd.showIt();
                 }
                 break;
@@ -663,6 +664,7 @@ public final class Jabber extends Protocol implements FormListener {
             }
         }
 		AlertDialog.Builder builder = new AlertDialog.Builder(SawimActivity.getInstance());
+        builder.setCancelable(true);
         builder.setTitle(c.getName());
         builder.setSingleChoiceItems(Util.vectorToArray(items), selected, new DialogInterface.OnClickListener() {
             @Override

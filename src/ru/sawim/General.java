@@ -1,7 +1,10 @@
 package ru.sawim;
 
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -34,8 +37,8 @@ import java.io.InputStream;
 public class General {
 
     private static General instance;
-    public static final String NAME = "Sawim NE";
-    public static final String VERSION = "1.2";
+    public static final String NAME = SawimApplication.getInstance().getString(R.string.app_name);
+    public static final String VERSION = SawimApplication.getInstance().getVersion();
     public static final String PHONE = "android/" + android.os.Build.MODEL
             + "/" + android.os.Build.VERSION.RELEASE;
 
@@ -56,7 +59,7 @@ public class General {
 
     public static void openUrl(String url) {
         Search search = ContactList.getInstance().getManager().getCurrentProtocol().getSearchForm();
-        search.show(Util.getUrlWithoutProtocol(url));
+        search.show(Util.getUrlWithoutProtocol(url), true);
     }
 
     public static java.io.InputStream getResourceAsStream(String name) {
@@ -151,6 +154,23 @@ public class General {
         }
     }
 
+    public static int getFontSize() {
+        Resources res = SawimApplication.getInstance().getResources();
+        switch (Options.getInt(Options.OPTION_FONT_SCHEME)) {
+            case 0:
+                return res.getDimensionPixelSize(R.dimen.smallest_10_font_size);
+            case 1:
+                return res.getDimensionPixelSize(R.dimen.smallest_13_font_size);
+            case 2:
+                return res.getDimensionPixelSize(R.dimen.small_font_size);
+            case 3:
+                return res.getDimensionPixelSize(R.dimen.medium_font_size);
+            case 4:
+                return res.getDimensionPixelSize(R.dimen.large_font_size);
+        }
+        return 15;
+    }
+
     public InputStream getResourceAsStream(Context c, Class origClass, String name) {
         try {
             if (name.startsWith("/")) {
@@ -212,5 +232,6 @@ public class General {
         void updateChat();
         void addMessage(Chat chat, MessData messData);
         void updateMucList();
+        void pastText(String s);
     }
 }

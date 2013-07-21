@@ -4,6 +4,7 @@ import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
+import ru.sawim.General;
 import ru.sawim.models.form.VirtualListItem;
 import ru.sawim.models.list.VirtualList;
 import java.util.Vector;
@@ -27,6 +28,7 @@ public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
     private TextBoxView searchBox;
     private boolean shortView;
     private Vector jids = new Vector();
+    private boolean isMucUsers = false;
 
     private VirtualList screen;
     private VirtualListModel model = new VirtualListModel();
@@ -39,6 +41,7 @@ public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
     private static final int COMMAND_HOME = 5;
 
     public void init(Jabber protocol) {
+        isMucUsers(false);
         screen = VirtualList.getInstance();
         jabber = protocol;
         serverBox = new TextBoxView();
@@ -61,6 +64,11 @@ public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
 
             @Override
             public boolean back() {
+                if (isMucUsers) {
+                    screen.clearAll();
+                    setServer("");
+                    return true;
+                }
                 if (serverJid == "") {
                     screen.clearAll();
                     return true;
@@ -223,9 +231,9 @@ public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
 
         model.addPar(item);
         jids.addElement(shortJid);
-        if (0 == (jids.size() % 50)) {
+        //if (0 == (jids.size() % 50)) {
             screen.updateModel();
-        }
+        //}
     }
 
     public void showIt() {
@@ -262,7 +270,7 @@ public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
         }
     }
     private void addBuildInList() {
-        addUnique("Sawim aspro", "jimm-sawim@conference.jabber.ru");
+        addUnique(General.NAME, "jimm-sawim@conference.jabber.ru");
         VirtualListItem br = model.createNewParser(false);
         br.addBr();
         model.addPar(br);
@@ -271,6 +279,10 @@ public final class ServiceDiscovery implements TextBoxView.TextBoxListener {
         String domain = Jid.getDomain(jabber.getUserId());
         addUnique(JLocale.getString("my_server"), domain);
         addUnique(JLocale.getString("conferences_on_") + domain, "conference." + domain);
+    }
+
+    public void isMucUsers(boolean isMucUsers) {
+        this.isMucUsers = isMucUsers;
     }
 
     public void setServer(String jid) {
