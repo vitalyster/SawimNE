@@ -57,7 +57,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
     private ArrayList<BaseAdapter> adaptersPages = new ArrayList<BaseAdapter>();
     private RosterAdapter allRosterAdapter;
     private RosterAdapter onlineRosterAdapter;
-    private RosterAdapter chatsRosterAdapter;
+    //private RosterAdapter chatsRosterAdapter;
     private VirtualContactList owner;
     private Vector updateQueue = new Vector();
     private List<TreeNode> items = new ArrayList<TreeNode>();
@@ -77,10 +77,11 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
             startActivity(new Intent(currentActivity, AccountsListActivity.class));
             return;
         } else {
-            if (owner.getProtocolCount() == 0) {
+            int protocolCount = owner.getProtocolCount();
+            if (protocolCount == 0) {
                 startActivity(new Intent(currentActivity, AccountsListActivity.class));
                 return;
-            } else if (owner.getProtocolCount() == 1) {
+            } else if (protocolCount == 1 && owner.getProtocol(owner.getCurrProtocol()).getContactItems().size() == 0) {
                 Toast.makeText(getActivity(), R.string.press_menu_for_connect, Toast.LENGTH_LONG).show();
             }
         }
@@ -90,7 +91,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         adaptersPages.clear();
         ListView allListView = new ListView(currentActivity);
         ListView onlineListView = new ListView(currentActivity);
-        ListView chatsListView = new ListView(currentActivity);
+    //    ListView chatsListView = new ListView(currentActivity);
 
         rosterViewLayout.setBackgroundColor(Scheme.getColor(Scheme.THEME_BACKGROUND));
         indicator.setTextColor(Scheme.getColor(Scheme.THEME_GROUP));
@@ -100,42 +101,42 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         LayoutInflater inf = LayoutInflater.from(currentActivity);
         allRosterAdapter = new RosterAdapter(inf, owner, items, RosterAdapter.ALL_CONTACTS);
         onlineRosterAdapter = new RosterAdapter(inf, owner, items, RosterAdapter.ONLINE_CONTACTS);
-        chatsRosterAdapter = new RosterAdapter(inf, owner, ChatHistory.instance.chats(), RosterAdapter.OPEN_CHATS);
+    //    chatsRosterAdapter = new RosterAdapter(inf, owner, ChatHistory.instance.chats(), RosterAdapter.OPEN_CHATS);
 
         adaptersPages.add(allRosterAdapter);
         adaptersPages.add(onlineRosterAdapter);
-        adaptersPages.add(chatsRosterAdapter);
+    //    adaptersPages.add(chatsRosterAdapter);
 
         allListView.setCacheColorHint(0x00000000);
         onlineListView.setCacheColorHint(0x00000000);
-        chatsListView.setCacheColorHint(0x00000000);
+    //    chatsListView.setCacheColorHint(0x00000000);
 
         allListView.setAdapter(allRosterAdapter);
         onlineListView.setAdapter(onlineRosterAdapter);
-        chatsListView.setAdapter(chatsRosterAdapter);
+    //    chatsListView.setAdapter(chatsRosterAdapter);
 
         allListView.setTag(currentActivity.getResources().getString(R.string.all_contacts));
         onlineListView.setTag(currentActivity.getResources().getString(R.string.online_contacts));
-        chatsListView.setTag(currentActivity.getResources().getString(R.string.active_contacts));
+    //    chatsListView.setTag(currentActivity.getResources().getString(R.string.active_contacts));
 
         pages.add(allListView);
         pages.add(onlineListView);
-        pages.add(chatsListView);
+    //    pages.add(chatsListView);
 
         pagerAdapter = new CustomPagerAdapter(pages);
         viewPager.setAdapter(pagerAdapter);
 
         currentActivity.registerForContextMenu(allListView);
         currentActivity.registerForContextMenu(onlineListView);
-        currentActivity.registerForContextMenu(chatsListView);
+    //    currentActivity.registerForContextMenu(chatsListView);
 
         allListView.setOnCreateContextMenuListener(this);
         onlineListView.setOnCreateContextMenuListener(this);
-        chatsListView.setOnCreateContextMenuListener(this);
+    //    chatsListView.setOnCreateContextMenuListener(this);
 
         allListView.setOnItemClickListener(this);
         onlineListView.setOnItemClickListener(this);
-        chatsListView.setOnItemClickListener(this);
+    //    chatsListView.setOnItemClickListener(this);
         viewPager.setOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override
             public void onPageScrolled(int i, float v, int i2) {
@@ -242,6 +243,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         if (owner.getProtocolCount() == 0) return;
         owner.setOnUpdateRoster(this);
         update();
+        Log.e("RosterView", "onResume");
     }
 
     @Override
@@ -249,6 +251,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         super.onPause();
         if (owner == null) return;
         owner.setOnUpdateRoster(null);
+        Log.e("RosterView", "onPause");
     }
 
     @Override
@@ -324,7 +327,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         TreeNode node = ((RosterAdapter)adaptersPages.get(viewPager.getCurrentItem())).getItem(menuInfo.position);
         if (node.isContact()) {
             final Contact c = (Contact) node;
-            SawimApplication.getInstance().runOnUiThread(new Runnable() {
+            getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     new ContactMenu(c.getProtocol(), c).doAction(getActivity(), item.getItemId());
@@ -351,7 +354,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
     public void updateProgressBar() {
         final Protocol p = general.getCurrProtocol();
         if (p == null) return;
-        SawimApplication.getInstance().runOnUiThread(new Runnable() {
+        getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
             if (p.isConnecting()) {
@@ -376,7 +379,7 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
     @Override
     public void updateBarProtocols() {
         final int protCount = owner.getProtocolCount();
-        SawimApplication.getInstance().runOnUiThread(new Runnable() {
+        getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 if (protCount > 1) {
@@ -420,15 +423,16 @@ public class RosterView extends Fragment implements View.OnClickListener, ListVi
         SawimApplication.getInstance().runInBackground(new Runnable() {
             @Override
             public void run() {
-                SawimApplication.getInstance().runOnUiThread(new Runnable() {
+                getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        if (viewPager.getCurrentItem() == RosterAdapter.OPEN_CHATS) {
+                        /*if (viewPager.getCurrentItem() == RosterAdapter.OPEN_CHATS) {
+                            items.addAll(ChatHistory.instance.chats());
                             Util.sort(ChatHistory.instance.chats());
                             adaptersPages.get(RosterAdapter.OPEN_CHATS).notifyDataSetChanged();
-                        } else {
+                        } else {*/
                             rebuildRoster(viewPager.getCurrentItem());
-                        }
+                        //}
                     }
                 });
             }

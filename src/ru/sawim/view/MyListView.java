@@ -14,6 +14,7 @@ import android.widget.ListView;
  * To change this template use File | Settings | File Templates.
  */
 public class MyListView extends ListView {
+
     private boolean scroll = true;
 
     public MyListView(Context context) {
@@ -35,10 +36,11 @@ public class MyListView extends ListView {
     @Override
     public void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        if (scroll) {
+        /*if (scroll) {
             if (Build.VERSION.SDK_INT >= 8) smoothScrollToPosition(getCount());
             else setSelection(getCount());
-        }
+        }*/
     }
+
 }
 

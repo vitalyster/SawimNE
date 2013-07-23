@@ -7,6 +7,7 @@ import android.view.ContextMenu;
 import android.view.ContextThemeWrapper;
 import ru.sawim.R;
 import sawim.FileTransfer;
+import sawim.chat.ChatHistory;
 import sawim.chat.message.PlainMessage;
 import sawim.cl.ContactList;
 import sawim.comm.Util;
@@ -32,7 +33,7 @@ public class ContactMenu implements TextBoxView.TextBoxListener {
         contact.initContextMenu(protocol, menu);
     }
 
-    public void doAction(FragmentActivity a, int cmd) {
+    public void doAction(final FragmentActivity a, int cmd) {
         switch (cmd) {
             case Contact.USER_MENU_TRACK: 
                 new sawim.modules.tracking.TrackingForm(contact.getUserId()).activate();
@@ -98,7 +99,7 @@ public class ContactMenu implements TextBoxView.TextBoxListener {
                 break;
             
             case Contact.USER_MENU_USER_INFO:
-                protocol.showUserInfo(contact);
+                protocol.showUserInfo(a, contact);
                 break;
 			
 			case Jabber.CONFERENCE_AFFILIATION_LIST:
@@ -115,16 +116,16 @@ public class ContactMenu implements TextBoxView.TextBoxListener {
                     public void onClick(DialogInterface dialog, int which) {
                         switch (which) {
                             case 0:
-                                protocol.doAction(contact, Jabber.CONFERENCE_OWNERS);
+                                protocol.doAction(a, contact, Jabber.CONFERENCE_OWNERS);
                                 break;
                             case 1:
-                                protocol.doAction(contact, Jabber.CONFERENCE_ADMINS);
+                                protocol.doAction(a, contact, Jabber.CONFERENCE_ADMINS);
                                 break;
                             case 2:
-                                protocol.doAction(contact, Jabber.CONFERENCE_MEMBERS);
+                                protocol.doAction(a, contact, Jabber.CONFERENCE_MEMBERS);
                                 break;
                             case 3:
-                                protocol.doAction(contact, Jabber.CONFERENCE_INBAN);
+                                protocol.doAction(a, contact, Jabber.CONFERENCE_INBAN);
                                 break;
                         }
                     }
@@ -147,7 +148,7 @@ public class ContactMenu implements TextBoxView.TextBoxListener {
                 break;
                 
             default:
-                protocol.doAction(contact, cmd);
+                protocol.doAction(a, contact, cmd);
         }
     }
 	

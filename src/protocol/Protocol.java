@@ -1,6 +1,7 @@
 package protocol;
 
 import DrawControls.icons.Icon;
+import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import sawim.FileTransfer;
 import ru.sawim.General;
@@ -1146,10 +1147,10 @@ abstract public class Protocol {
         }
     }
 
-    protected void doAction(Contact contact, int cmd) {
+    protected void doAction(FragmentActivity a, Contact contact, int cmd) {
     }
 
-    public void showUserInfo(Contact contact) {
+    public void showUserInfo(FragmentActivity a, Contact contact) {
     }
 
     public void showStatus(Contact contact) {
@@ -1191,9 +1192,7 @@ abstract public class Protocol {
                 contact.setTempFlag(true);
                 addLocalContact(contact);
             }
-            if (!chat.empty() || !contact.isSingleUserContact()) {
-                ChatHistory.instance.registerChat(chat);
-            }
+            ChatHistory.instance.registerChat(chat);
         }
         return chat;
     }
