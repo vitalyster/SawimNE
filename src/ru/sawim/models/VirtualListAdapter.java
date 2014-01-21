@@ -8,10 +8,14 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import ru.sawim.General;
 import ru.sawim.R;
-import ru.sawim.models.form.VirtualListItem;
 import ru.sawim.Scheme;
+import ru.sawim.models.list.VirtualListItem;
+import ru.sawim.text.TextLinkClick;
+import ru.sawim.widget.MyTextView;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,11 +28,19 @@ import java.util.List;
 public class VirtualListAdapter extends BaseAdapter {
 
     private Context baseContext;
-    private List<VirtualListItem> items;
+    private LayoutInflater inf;
+    private List<VirtualListItem> items = new ArrayList<VirtualListItem>();
+    private int selectedItem = -1;
 
-    public VirtualListAdapter(Context context, List<VirtualListItem> items) {
+    public VirtualListAdapter(Context context) {
         this.baseContext = context;
-        this.items = items;
+        inf = LayoutInflater.from(baseContext);
+    }
+
+    public void refreshList(List<VirtualListItem> list) {
+        items.clear();
+        items.addAll(list);
+        notifyDataSetChanged();
     }
 
     @Override
@@ -52,41 +64,52 @@ public class VirtualListAdapter extends BaseAdapter {
         return i;
     }
 
+    public void setSelectedItem(int position) {
+        selectedItem = position;
+    }
+
     @Override
     public View getView(int i, View convertView, ViewGroup viewGroup) {
         ViewHolder holder;
         VirtualListItem element = getItem(i);
         if (convertView == null) {
-            LayoutInflater inf = LayoutInflater.from(baseContext);
             convertView = inf.inflate(R.layout.virtual_list_item, null);
             holder = new ViewHolder();
             holder.descriptionLayout = (LinearLayout) convertView.findViewById(R.id.descriptionLayout);
             holder.labelView = (TextView) convertView.findViewById(R.id.label);
-            holder.descView = (TextView) holder.descriptionLayout.findViewById(R.id.description);
+            holder.descView = (MyTextView) holder.descriptionLayout.findViewById(R.id.description);
             holder.imageView = (ImageView) holder.descriptionLayout.findViewById(R.id.imageView);
             convertView.setTag(holder);
         } else {
             holder = (ViewHolder) convertView.getTag();
         }
         if (element == null) return convertView;
+        ((ViewGroup) convertView).setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
 
         holder.labelView.setTextColor(Scheme.getColor(Scheme.THEME_TEXT));
         holder.descView.setTextColor(Scheme.getColor(Scheme.THEME_TEXT));
+        holder.descView.setOnTextLinkClickListener(new TextLinkClick(null, ""));
 
         holder.labelView.setVisibility(TextView.GONE);
         holder.descView.setVisibility(TextView.GONE);
         holder.imageView.setVisibility(ImageView.GONE);
 
-        ViewGroup.MarginLayoutParams layoutParams = (ViewGroup.MarginLayoutParams) holder.descriptionLayout.getLayoutParams();
-        if (layoutParams != null) {
-            layoutParams.setMargins(element.getMarginLeft(), 0, 0, 0);
-            holder.descriptionLayout.setLayoutParams(layoutParams);
+        ViewGroup.MarginLayoutParams labelLayoutParams = (ViewGroup.MarginLayoutParams) holder.labelView.getLayoutParams();
+        ViewGroup.MarginLayoutParams descLayoutParams = (ViewGroup.MarginLayoutParams) holder.descriptionLayout.getLayoutParams();
+        if (labelLayoutParams != null) {
+            labelLayoutParams.setMargins(element.getMarginLeft(), 0, 0, 0);
+            holder.labelView.setLayoutParams(labelLayoutParams);
+        }
+        if (descLayoutParams != null) {
+            descLayoutParams.setMargins(element.getMarginLeft(), 0, 0, 0);
+            holder.descriptionLayout.setLayoutParams(descLayoutParams);
         }
         if (element.getLabel() != null) {
             holder.labelView.setVisibility(TextView.VISIBLE);
             if (element.getThemeTextLabel() > -1) {
                 holder.labelView.setTextColor(Scheme.getColor(element.getThemeTextLabel()));
             }
+            holder.labelView.setTextSize(General.getFontSize());
             holder.labelView.setText(element.getLabel());
         }
         if (element.getDescStr() != null) {
@@ -94,25 +117,28 @@ public class VirtualListAdapter extends BaseAdapter {
             if (element.getThemeTextDesc() > -1) {
                 holder.descView.setTextColor(Scheme.getColor(element.getThemeTextDesc()));
             }
+            holder.descView.setLinkTextColor(Scheme.LINKS);
+            holder.descView.setTextSize(General.getFontSize());
             holder.descView.setText(element.getDescStr());
-        } else {
-            if (element.getDescSpan() != null) {
-                holder.descView.setVisibility(TextView.VISIBLE);
-                holder.descView.setText(element.getDescSpan());
-            }
+            holder.descView.repaint();
         }
         if (element.getImage() != null) {
             holder.imageView.setVisibility(ImageView.VISIBLE);
-            holder.imageView.setImageBitmap(element.getImage());
+            holder.imageView.setImageDrawable(element.getImage());
+        }
+        LinearLayout activeItem = (LinearLayout) convertView;
+        if (i == selectedItem && selectedItem != -1) {
+            activeItem.setBackgroundColor(Scheme.getInversColor(Scheme.THEME_BACKGROUND));
+        } else {
+            activeItem.setBackgroundColor(0);
         }
         return convertView;
     }
 
-    private static class ViewHolder {
+    private class ViewHolder {
         LinearLayout descriptionLayout;
         TextView labelView;
-        TextView descView;
+        MyTextView descView;
         ImageView imageView;
-
     }
 }

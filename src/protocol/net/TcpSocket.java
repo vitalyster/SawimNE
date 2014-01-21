@@ -1,15 +1,12 @@
 package protocol.net;
 
 import sawim.SawimException;
+import sawim.modules.DebugLog;
 
-import javax.microedition.io.Connection;
-import javax.microedition.io.ConnectionNotFoundException;
-import javax.microedition.io.Connector;
-import javax.microedition.io.StreamConnection;
+import javax.microedition.io.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
 
 public final class TcpSocket {
     private StreamConnection sc;
@@ -19,9 +16,19 @@ public final class TcpSocket {
     public TcpSocket() {
     }
 
+    public void connectTo(String host, int port) throws SawimException {
+        connectTo("socket://" + host + ":" + port);
+    }
+
     public void connectTo(String url) throws SawimException {
         try {
-            sc = (StreamConnection)Connector.open(url, Connector.READ_WRITE);
+            sc = (StreamConnection) Connector.open(url, Connector.READ_WRITE);
+            SocketConnection socket = (SocketConnection) sc;
+            socket.setSocketOption(SocketConnection.DELAY, 0);
+            //socket.setSocketOption(SocketConnection.KEEPALIVE, 2*60);
+            //socket.setSocketOption(SocketConnection.LINGER, 0);
+            //socket.setSocketOption(SocketConnection.RCVBUF, 10*1024);
+            //socket.setSocketOption(SocketConnection.SNDBUF, 10*1024);
             os = sc.openOutputStream();
             is = sc.openInputStream();
         } catch (ConnectionNotFoundException e) {
@@ -36,9 +43,10 @@ public final class TcpSocket {
             throw new SawimException(120, 10);
         }
     }
+
     public void connectForReadingTo(String url) throws SawimException {
         try {
-            sc = (StreamConnection)Connector.open(url, Connector.READ);
+            sc = (StreamConnection) Connector.open(url, Connector.READ);
             is = sc.openInputStream();
         } catch (ConnectionNotFoundException e) {
             throw new SawimException(121, 0);
@@ -60,17 +68,9 @@ public final class TcpSocket {
             throw new SawimException(120, 4);
         }
     }
-    public void waitData() throws SawimException {
-        while (0 == available()) {
-            try {
-                Thread.sleep(100);
-            } catch (Exception ignored) {
-            }
-        }
-    }
+
     public int read(byte[] data, int offset, int length) throws SawimException {
         try {
-            length = Math.min(length, is.available());
             if (0 == length) {
                 return 0;
             }
@@ -79,6 +79,7 @@ public final class TcpSocket {
                 throw new IOException("EOF");
             }
             return bRead;
+
         } catch (IOException e) {
             throw new SawimException(120, 1);
         }
@@ -95,19 +96,43 @@ public final class TcpSocket {
                 if (-1 == bRead) {
                     throw new IOException("EOF");
                 } else if (0 == bRead) {
-                    waitData();
+                    try {
+                        Thread.sleep(100);
+                    } catch (Exception ignored) {
+                    }
                 }
                 bReadSum += bRead;
             } while (bReadSum < data.length);
-
             return bReadSum;
         } catch (IOException e) {
             throw new SawimException(120, 1);
         }
     }
+
+    public static int readFully(InputStream in, byte[] data, final int offset, final int length) throws IOException {
+        if ((null == data) || (0 == data.length)) {
+            return 0;
+        }
+        int bReadSum = 0;
+        do {
+            int bRead = in.read(data, offset + bReadSum, length - bReadSum);
+            if (-1 == bRead) {
+                throw new IOException("EOF");
+            } else if (0 == bRead) {
+                try {
+                    Thread.sleep(100);
+                } catch (Exception ignored) {
+                }
+            }
+            bReadSum += bRead;
+        } while (bReadSum < length);
+        return bReadSum;
+    }
+
     public final void write(byte[] data) throws SawimException {
         write(data, 0, data.length);
     }
+
     public void write(byte[] data, int offset, int length) throws SawimException {
         try {
             os.write(data, offset, length);
@@ -116,6 +141,7 @@ public final class TcpSocket {
             throw new SawimException(120, 2);
         }
     }
+
     public void flush() throws SawimException {
         try {
             os.flush();
@@ -128,7 +154,20 @@ public final class TcpSocket {
         try {
             return is.available();
         } catch (IOException ex) {
+
             throw new SawimException(120, 3);
+        }
+    }
+
+    public void startTls(String host) {
+        try {
+            DebugLog.println("startTls start " + sc + os + is);
+            ((org.microemu.cldc.socket.SocketConnection) sc).startTls(host);
+            is = sc.openInputStream();
+            os = sc.openOutputStream();
+            DebugLog.println("startTls done " + sc + os + is);
+        } catch (Exception e) {
+            DebugLog.panic("startTls error", e);
         }
     }
 
@@ -137,18 +176,21 @@ public final class TcpSocket {
         close(os);
         close(sc);
     }
+
     public static void close(Connection c) {
         try {
             c.close();
         } catch (Exception ignored) {
         }
     }
+
     public static void close(InputStream c) {
         try {
             c.close();
         } catch (Exception ignored) {
         }
     }
+
     public static void close(OutputStream c) {
         try {
             c.close();

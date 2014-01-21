@@ -1,5 +1,3 @@
-
-
 package sawim.comm;
 
 import java.io.ByteArrayInputStream;
@@ -13,7 +11,7 @@ public final class StringConvertor {
     private final String[] from;
     private final String[] to;
 
-    private static StringConvertor[] converters = new StringConvertor[0];
+    private static StringConvertor[] converters;
 
     public static final String DETRANSLITERATE = "detrans" + "literate";
     public static final String MRIM2Sawim = "mrim2Sawim";
@@ -38,7 +36,7 @@ public final class StringConvertor {
         return size + " MiB";
     }
 
-    
+
     public static String byteArrayToHexString(byte[] buf) {
         StringBuffer hexString = new StringBuffer(buf.length * 2);
         for (int i = 0; i < buf.length; ++i) {
@@ -51,7 +49,6 @@ public final class StringConvertor {
         return hexString.toString();
     }
 
-    
     public static boolean isDataUCS2(byte[] array, int start, int lenght) {
         if ((lenght & 1) != 0) {
             return false;
@@ -61,11 +58,9 @@ public final class StringConvertor {
         boolean result = true;
         for (int i = start; i < end; i += 2) {
             b = array[i];
-            
             if (0 < b && b < 0x09) {
                 return true;
             }
-            
             if (0x00 == b && array[i + 1] != 0) {
                 return true;
             }
@@ -79,18 +74,18 @@ public final class StringConvertor {
         return result;
     }
 
-    
+
     public static boolean isDataUTF8(byte[] array, int start, int length) {
         if (0 == length) {
             return false;
         }
 
-        for (int i = start, len = length; len > 0;) {
+        for (int i = start, len = length; len > 0; ) {
             byte bt = array[i++];
             len--;
 
             int seqLen = 0;
-            if      ((bt & 0xE0) == 0xC0) seqLen = 1;
+            if ((bt & 0xE0) == 0xC0) seqLen = 1;
             else if ((bt & 0xF0) == 0xE0) seqLen = 2;
             else if ((bt & 0xF8) == 0xF0) seqLen = 3;
             else if ((bt & 0xFC) == 0xF8) seqLen = 4;
@@ -113,7 +108,6 @@ public final class StringConvertor {
         return true;
     }
 
-    
     public static byte[] stringToByteArray1251(String s) {
         if (null == s) {
             return new byte[0];
@@ -127,7 +121,7 @@ public final class StringConvertor {
         }
         byte buf[] = new byte[s.length()];
         int size = s.length();
-        for(int i = 0; i < size; ++i) {
+        for (int i = 0; i < size; ++i) {
             char ch = s.charAt(i);
             switch (ch) {
                 case 1025:
@@ -136,8 +130,6 @@ public final class StringConvertor {
                 case 1105:
                     buf[i] = -72;
                     break;
-
-                    
                 case 1168:
                     buf[i] = -91;
                     break;
@@ -162,13 +154,11 @@ public final class StringConvertor {
                 case 1111:
                     buf[i] = -65;
                     break;
-                    
-
                 default:
                     if (ch >= '\u0410' && ch <= '\u044F') {
                         buf[i] = (byte) ((ch - 1040) + 192);
                     } else {
-                        buf[i] = (byte)((int)ch & 0xFF);
+                        buf[i] = (byte) ((int) ch & 0xFF);
                     }
                     break;
             }
@@ -176,7 +166,6 @@ public final class StringConvertor {
         return buf;
     }
 
-    
     public static String byteArray1251ToString(byte buf[], int pos, int len) {
         if (systemWin1251) {
             try {
@@ -187,7 +176,7 @@ public final class StringConvertor {
         }
         int end = pos + len;
         StringBuffer stringbuffer = new StringBuffer(len);
-        for(int i = pos; i < end; ++i) {
+        for (int i = pos; i < end; ++i) {
             int ch = buf[i] & 0xff;
             switch (ch) {
                 case 168:
@@ -196,8 +185,6 @@ public final class StringConvertor {
                 case 184:
                     stringbuffer.append('\u0451');
                     break;
-
-                    
                 case 165:
                     stringbuffer.append('\u0490');
                     break;
@@ -222,14 +209,12 @@ public final class StringConvertor {
                 case 191:
                     stringbuffer.append('\u0457');
                     break;
-                    
-
                 default:
                     try {
                         if (ch >= 192 && ch <= 255) {
                             stringbuffer.append((char) ((1040 + ch) - 192));
                         } else {
-                            stringbuffer.append((char)ch);
+                            stringbuffer.append((char) ch);
                         }
                     } catch (Exception e) {
                     }
@@ -241,7 +226,6 @@ public final class StringConvertor {
 
     public static String utf8beByteArrayToString(byte[] buf, int off, int len) {
         try {
-            
             if ((0 < len) && (0x00 == buf[off + len - 1])) {
                 len--;
             }
@@ -255,11 +239,11 @@ public final class StringConvertor {
             DataInputStream dis = new DataInputStream(bais);
             return removeCr(dis.readUTF());
         } catch (Exception e) {
-            
+
         }
         return "";
     }
-    
+
     public static byte[] stringToUcs2beByteArray(String val) {
         byte[] ucs2be = new byte[val.length() * 2];
         int size = val.length();
@@ -269,26 +253,18 @@ public final class StringConvertor {
         return ucs2be;
     }
 
-
-    
     public static String ucs2beByteArrayToString(byte[] buf, int off, int len) {
-
-        
         if ((off + len > buf.length) || (len % 2 != 0)) {
             return "";
         }
-
-        
         StringBuffer sb = new StringBuffer();
         int end = off + len;
         for (int i = off; i < end; i += 2) {
-            sb.append((char)Util.getWordBE(buf, i));
+            sb.append((char) Util.getWordBE(buf, i));
         }
         return removeCr(sb.toString());
-
     }
 
-    
     public static String removeCr(String val) {
         if (val.indexOf('\r') < 0) {
             return val;
@@ -307,7 +283,6 @@ public final class StringConvertor {
         return result.toString();
     }
 
-    
     public static String restoreCrLf(String val) {
         StringBuffer result = new StringBuffer();
         int size = val.length();
@@ -323,9 +298,7 @@ public final class StringConvertor {
         return result.toString();
     }
 
-    
     public static byte[] stringToByteArrayUtf8(String val) {
-        
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             char ch;
@@ -348,24 +321,20 @@ public final class StringConvertor {
             }
             return baos.toByteArray();
         } catch (Exception e) {
-            
+
         }
         return null;
     }
 
-    
     public static byte[] stringToByteArray(String val) {
         return isEmpty(val) ? new byte[0] : val.getBytes();
     }
 
-    
     public static String byteArrayToString(byte[] buf, int off, int len) {
-
-        
         if (buf.length < off + len) {
             return "";
         }
-        
+
         while ((0 < len) && (buf[off + len - 1] == 0x00)) {
             len--;
         }
@@ -373,12 +342,10 @@ public final class StringConvertor {
             return "";
         }
 
-        
         if (isDataUCS2(buf, off, len)) {
             return ucs2beByteArrayToString(buf, off, len);
         }
 
-        
         if (isDataUTF8(buf, off, len)) {
             return utf8beByteArrayToString(buf, off, len);
         }
@@ -386,13 +353,11 @@ public final class StringConvertor {
         return byteArrayToWinString(buf, off, len);
     }
 
-
     public static String byteArrayToWinString(byte[] buf, int off, int len) {
-        
         if (buf.length < off + len) {
             return "";
         }
-        
+
         if ((0 < len) && (0x00 == buf[off + len - 1])) {
             len--;
         }
@@ -401,9 +366,11 @@ public final class StringConvertor {
         }
         return byteArray1251ToString(buf, off, len);
     }
+
     public static String byteArrayToAsciiString(byte[] buf) {
         return new String(buf, 0, buf.length);
     }
+
     public static String byteArrayToAsciiString(byte[] buf, int offset, int length) {
         return new String(buf, offset, length);
     }
@@ -435,7 +402,7 @@ public final class StringConvertor {
 
     public static String toLowerCase(String s) {
         char[] chars = s.toCharArray();
-        for(int i = s.length() - 1; i >= 0; i--) {
+        for (int i = s.length() - 1; i >= 0; i--) {
             chars[i] = toLowerCase(chars[i]);
         }
         String res = new String(chars);
@@ -444,7 +411,7 @@ public final class StringConvertor {
 
     public static String toUpperCase(String s) {
         char[] chars = s.toCharArray();
-        for(int i = s.length() - 1; i >= 0; i--) {
+        for (int i = s.length() - 1; i >= 0; i--) {
             chars[i] = toUpperCase(chars[i]);
         }
         String res = new String(chars);
@@ -452,7 +419,7 @@ public final class StringConvertor {
     }
 
     public static char toLowerCase(char c) {
-        if (c >= 'A' && c <= 'Z' || c >= '\300'
+        /*if (c >= 'A' && c <= 'Z' || c >= '\300'
                 && c <= '\326' || c >= '\330'
                 && c <= '\336' || c >= '\u0400'
                 && c <= '\u042F') {
@@ -463,12 +430,12 @@ public final class StringConvertor {
                 return (char)(c + 80);
             }
             return (char)(c + 32);
-        }
+        }*/
         return Character.toLowerCase(c);
     }
 
     public static char toUpperCase(char c) {
-        if (c >= 'a' && c <= 'z' || c >= '\337'
+        /*if (c >= 'a' && c <= 'z' || c >= '\337'
                 && c <= '\366' || c >= '\370'
                 && c <= '\377' || c >= '\u0430'
                 && c <= '\u045F') {
@@ -479,9 +446,10 @@ public final class StringConvertor {
                 return (char)(c - 80);
             }
             return (char)(c - 32);
-        }
+        }*/
         return Character.toUpperCase(c);
     }
+
     private boolean equalsSubstring(String s1, int pos, String s2) {
         if (s1.length() - pos < s2.length()) {
             return false;
@@ -494,6 +462,7 @@ public final class StringConvertor {
         }
         return true;
     }
+
     private int convertCharIndex(String str, int pos) {
         for (int i = 0; i < from.length; ++i) {
             if (equalsSubstring(str, pos, from[i])) {
@@ -502,8 +471,8 @@ public final class StringConvertor {
         }
         return -1;
     }
-    private String convertChar(String str, int pos, int wordIndex) {
 
+    private String convertChar(String str, int pos, int wordIndex) {
         char ch = str.charAt(pos);
         if (toLowerCase(ch) == ch) {
             return to[wordIndex];
@@ -576,10 +545,8 @@ public final class StringConvertor {
         return result;
     }
 
-
     private StringConvertor(String name, String[] from, String[] to) {
         this.name = name;
-
         this.from = from;
         this.to = to;
         for (int i = 0; i < from.length; ++i) {
@@ -593,14 +560,13 @@ public final class StringConvertor {
         Vector configs = new Vector();
         String content = Config.loadResource("/replaces.txt");
         Config.parseIniConfig(content, configs);
-        
+
         String mrimContent = Config.loadResource("/mrim-replaces.txt");
         Config.parseIniConfig(mrimContent, configs);
-        
-        
-        String jabberContent = Config.loadResource("/jabber-replaces.txt");
-        Config.parseIniConfig(jabberContent, configs);
-        
+
+        String xmppContent = Config.loadResource("/jabber-replaces.txt");
+        Config.parseIniConfig(xmppContent, configs);
+
         StringConvertor.converters = new StringConvertor[configs.size()];
         for (int i = 0; i < configs.size(); ++i) {
             Config config = (Config) configs.elementAt(i);
@@ -617,9 +583,11 @@ public final class StringConvertor {
         }
         return null;
     }
+
     public static boolean hasConverter(String scheme) {
         return null != getConvertor(scheme);
     }
+
     public static String convert(String scheme, String str) {
         StringConvertor convertor = getConvertor(scheme);
         return (null == convertor) ? str : convertor.convertText(str);
@@ -633,9 +601,11 @@ public final class StringConvertor {
     public static boolean isEmpty(String value) {
         return (null == value) || (0 == value.length());
     }
+
     public static String notNull(String value) {
         return (null == value) ? "" : value;
     }
+
     public static String trim(String msg) {
         if (StringConvertor.isEmpty(msg)) {
             return "";
@@ -653,7 +623,6 @@ public final class StringConvertor {
         return "";
     }
 
-
     private static int cutIndex(String str, char ch, int cutIndex, int length) {
         int chIndex = str.lastIndexOf(ch, length);
         if (-1 != chIndex) {
@@ -661,6 +630,7 @@ public final class StringConvertor {
         }
         return cutIndex;
     }
+
     public static String cut(String str, int length) {
         if (str.length() < length) {
             return str;

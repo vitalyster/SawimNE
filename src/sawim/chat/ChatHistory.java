@@ -1,22 +1,21 @@
 package sawim.chat;
 
-import DrawControls.icons.Icon;
+import android.graphics.drawable.BitmapDrawable;
+import android.util.Log;
+import protocol.Contact;
+import protocol.Protocol;
 import sawim.chat.message.Message;
 import sawim.chat.message.PlainMessage;
-import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.io.Storage;
-import protocol.Contact;
-import protocol.Protocol;
+import sawim.roster.RosterHelper;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Vector;
+import java.util.*;
 
 public final class ChatHistory {
     public final List<Chat> historyTable = new ArrayList<Chat>();
@@ -30,8 +29,39 @@ public final class ChatHistory {
         return historyTable.size();
     }
 
+    public void sort() {
+        Collections.sort(historyTable, new Comparator<Chat>() {
+            @Override
+            public int compare(Chat c1, Chat c2) {
+                return Util.compareNodes(c1.getContact(), c2.getContact());
+            }
+        });
+    }
+
+    public void addLayerToListOfChats(Protocol p, List<Object> items) {
+        boolean hasLayer = false;
+        items.add(p.getUserId());
+        for (int i = 0; i < ChatHistory.instance.historyTable.size(); ++i) {
+            Chat chat = ChatHistory.instance.chatAt(i);
+            if (chat.getProtocol() == p) {
+                items.add(chat);
+                hasLayer = true;
+            }
+        }
+        if (RosterHelper.getInstance().getProtocolCount() == 1) {
+            items.remove(0);
+            return;
+        }
+        if (!hasLayer) {
+            items.remove(items.size() - 1);
+            return;
+        }
+    }
+
     public Chat chatAt(int index) {
-        return historyTable.get(index);
+        if ((index < historyTable.size()) && (index >= 0))
+            return historyTable.get(index);
+        return null;
     }
 
     public Contact contactAt(int index) {
@@ -67,15 +97,15 @@ public final class ChatHistory {
         return count;
     }
 
-	public int getOtherMessageCount() {
-	    int count = 0;
+    public int getOtherMessageCount() {
+        int count = 0;
         for (int i = getTotal() - 1; 0 <= i; --i) {
-            count += chatAt(i).getAllMessagesCount();
-		}
-		return count;
+            count += chatAt(i).getOtherMessageCount();
+        }
+        return count;
     }
 
-    private int getMoreImportant(int v1, int v2) {
+    private byte getMoreImportant(int v1, int v2) {
         if ((Message.ICON_IN_MSG_HI == v1) || (Message.ICON_IN_MSG_HI == v2)) {
             return Message.ICON_IN_MSG_HI;
         }
@@ -91,16 +121,16 @@ public final class ChatHistory {
         return -1;
     }
 
-    public Icon getUnreadMessageIcon() {
-        int icon = -1;
+    public BitmapDrawable getUnreadMessageIcon() {
+        byte icon = -1;
         for (int i = getTotal() - 1; 0 <= i; --i) {
             icon = getMoreImportant(icon, chatAt(i).getNewMessageIcon());
         }
-        return Message.msgIcons.iconAt(icon);
+        return Message.getIcon(icon);
     }
 
-    public Icon getUnreadMessageIcon(Protocol p) {
-        int icon = -1;
+    public BitmapDrawable getUnreadMessageIcon(Protocol p) {
+        byte icon = -1;
         Chat chat;
         for (int i = getTotal() - 1; 0 <= i; --i) {
             chat = chatAt(i);
@@ -108,23 +138,46 @@ public final class ChatHistory {
                 icon = getMoreImportant(icon, chat.getNewMessageIcon());
             }
         }
-        return Message.msgIcons.iconAt(icon);
+        return Message.getIcon(icon);
     }
 
-    public Icon getUnreadMessageIcon(Vector contacts) {
-        int icon = -1;
+    public BitmapDrawable getUnreadMessageIcon(Vector contacts) {
+        byte icon = -1;
         Contact c;
         for (int i = contacts.size() - 1; 0 <= i; --i) {
-            c = (Contact)contacts.elementAt(i);
+            c = (Contact) contacts.elementAt(i);
             icon = getMoreImportant(icon, c.getUnreadMessageIcon());
         }
-        return Message.msgIcons.iconAt(icon);
+        return Message.getIcon(icon);
     }
-    
+
     public void registerChat(Chat item) {
-        if (-1 == Util.getIndex(historyTable, item)) {
+        if (!contains(historyTable, item.getContact().getUserId())) {
             historyTable.add(item);
             item.getContact().updateChatState(item);
+        }
+    }
+
+    private static boolean contains(List<Chat> list, String id) {
+        int size = list.size();
+        for (int i = 0; i < size; ++i) {
+            if (list.get(i).getContact().getUserId() == id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void unregisterChat(Chat item) {
+        if (null == item) return;
+        if (!item.message.equals("")) return;
+        historyTable.remove(item);
+        item.clear();
+        Contact c = item.getContact();
+        c.updateChatState(null);
+        item.getProtocol().ui_updateContact(c);
+        if (0 < item.getUnreadMessageCount()) {
+            RosterHelper.getInstance().markMessages(c);
         }
     }
 
@@ -137,26 +190,14 @@ public final class ChatHistory {
                 key.getContact().updateChatState(null);
             }
         }
-        ContactList.getInstance().markMessages(null);
-    }
-
-    public void unregisterChat(Chat item) {
-        if (null == item) return;
-        historyTable.remove(item);
-        item.clear();
-        Contact c = item.getContact();
-        c.updateChatState(null);
-        item.getProtocol().ui_updateContact(c);
-        if (0 < item.getAllMessagesCount()) {
-            ContactList.getInstance().markMessages(c);
-        }
+        RosterHelper.getInstance().markMessages(null);
     }
 
     private void removeChat(Chat chat) {
         if (null != chat) {
             clearChat(chat);
             //if (General.getSawim().getDisplay().remove(chat)) {
-            //    ContactList.getInstance()._setActiveContact(null);
+            //    RosterHelper.getSawimActivity()._setActiveContact(null);
             //}
             //setCurrentItemIndex(getCurrItem());
             //invalidate();
@@ -164,16 +205,16 @@ public final class ChatHistory {
         if (0 < getSize()) {
             //restore();
         } else {
-            ContactList.getInstance().activate();
+            RosterHelper.getInstance().updateRoster();
         }
     }
 
     private void clearChat(Chat chat) {
-        if (chat.isHuman() && !chat.getContact().isTemp()) {
+        //if (chat.isHuman() && !chat.getContact().isTemp()) {
         //    chat.removeReadMessages();
-        } else {
-            unregisterChat(chat);
-        }
+        //} else {
+        unregisterChat(chat);
+        //}
     }
 
     public void removeAll(Chat except) {
@@ -184,10 +225,10 @@ public final class ChatHistory {
         }
         //setCurrentItemIndex(getCurrItem());
         if (0 < getSize()) {
-        //    restore();
+            //    restore();
 
         } else {
-            ContactList.getInstance().activate();
+            RosterHelper.getInstance().updateRoster();
         }
     }
 
@@ -228,11 +269,20 @@ public final class ChatHistory {
         int current = 0;
         for (int i = 0; i < historyTable.size(); ++i) {
             Chat chat = chatAt(i);
-            if (currentContact == chat.getContact()) {
+            if (currentContact.getUserId() == chat.getContact().getUserId()) {
                 current = i;
             }
         }
         return current;
+    }
+
+    public String getLastMessage(String defMess) {
+        Chat current = chatAt(getPreferredItem());
+        if (current != null) {
+            MessData md = current.getMessageDataByIndex(current.getMessData().size() - 1);
+            return md.getNick() + ": " + md.getText();
+        }
+        return defMess;
     }
 
     public int getPreferredItem() {
@@ -241,16 +291,16 @@ public final class ChatHistory {
                 return i;
             }
         }
-        Contact currentContact = ContactList.getInstance().getCurrentContact();
-        int current = 0;
+        //Contact currentContact = RosterHelper.getSawimActivity().getCurrentContact();
+        int current = -1;
         for (int i = 0; i < historyTable.size(); ++i) {
             Chat chat = chatAt(i);
-            if (0 < chat.getAllMessagesCount()) {
+            if (0 < chat.getUnreadMessageCount()) {
                 return i;
             }
-            if (currentContact == chat.getContact()) {
-                current = i;
-            }
+            //if (currentContact == chat.getContact()) {
+            //    current = i;
+            //}
         }
         return current;
     }
@@ -296,7 +346,7 @@ public final class ChatHistory {
         if (getTotal() <= 0) return;
 		Chat current = chatAt(getPreferredItem());
         if (0 < current.getUnreadMessageCount()) {
-            current.activate();
+            current.updateRoster();
             return;
         }
 	}
@@ -307,7 +357,7 @@ public final class ChatHistory {
             return;
         }
         int nextChatNum = (chatNum + (next ? 1 : -1) + getTotal()) % getTotal();
-        chatAt(nextChatNum).activate();
+        chatAt(nextChatNum).updateRoster();
     }
 
     private static final int MENU_SELECT = 1;
@@ -318,7 +368,7 @@ public final class ChatHistory {
     protected void doSawimAction(int action) {
         switch (action) {
             case NativeCanvas.Sawim_SELECT:
-                getSelectedChat().activate();
+                getSelectedChat().updateRoster();
                 return;
 
             case NativeCanvas.Sawim_BACK:
@@ -383,8 +433,8 @@ public final class ChatHistory {
             s.open(true);
             for (int i = getTotal() - 1; 0 <= i; --i) {
                 Chat chat = chatAt(i);
-                
-                int count = chat.getAllMessagesCount();
+
+                int count = chat.getUnreadMessageCount();
                 for (int j = 0; j < count; ++j) {
                     MessData message = chat.getUnreadMessage(j);
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -392,15 +442,17 @@ public final class ChatHistory {
                     o.writeUTF(chat.getProtocol().getUserId());
                     o.writeUTF(chat.getContact().getUserId());
                     o.writeUTF(message.getNick());
-                    o.writeUTF(message.getText());
+                    o.writeUTF(message.getText().toString());
                     o.writeLong(message.getTime());
                     s.addRecord(out.toByteArray());
                 }
             }
         } catch (Exception ignored) {
+            Log.e("saveUnreadMessages", ignored.getMessage());
         }
         s.close();
     }
+
     public void loadUnreadMessages() {
         Storage s = new Storage("unread");
         try {
@@ -412,7 +464,7 @@ public final class ChatHistory {
                 String nick = in.readUTF();
                 String text = in.readUTF();
                 long time = in.readLong();
-                Protocol protocol = ContactList.getInstance().getProtocol(account);
+                Protocol protocol = RosterHelper.getInstance().getProtocol(account);
                 if (null == protocol) {
                     continue;
                 }

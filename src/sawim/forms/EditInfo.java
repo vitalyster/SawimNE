@@ -1,9 +1,9 @@
 package sawim.forms;
 
+import protocol.Protocol;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
 import sawim.search.UserInfo;
-import protocol.Protocol;
 
 public class EditInfo implements FormListener {
 
@@ -33,20 +33,20 @@ public class EditInfo implements FormListener {
     }
 
     public EditInfo init() {
-        final boolean isJabber = (protocol instanceof protocol.jabber.Jabber);
-        form = new Forms("editform", this);
+        final boolean isXmpp = (protocol instanceof protocol.xmpp.Xmpp);
+        form = new Forms("editform", this, false);
 
         form.addTextField(_NickNameItem, "nick", userInfo.nick);
         form.addTextField(_FirstNameItem, "firstname", userInfo.firstName);
         form.addTextField(_LastNameItem, "lastname", userInfo.lastName);
-        
-        if (!isJabber) {
+
+        if (!isXmpp) {
             form.addSelector(_SexItem, "gender", "-" + "|" + "female" + "|" + "male", userInfo.gender);
         }
 
         form.addTextField(_BdayItem, "birth_day", userInfo.birthDay);
 
-        if (isJabber) {
+        if (isXmpp) {
             form.addTextField(_EmailItem, "email", userInfo.email);
             form.addTextField(_CellPhoneItem, "cell_phone", userInfo.cellPhone);
         }
@@ -54,11 +54,11 @@ public class EditInfo implements FormListener {
         form.addTextField(_HomePageItem, "home_page", userInfo.homePage);
 
         form.addHeader("home_info");
-        
-        if (isJabber) {
+
+        if (isXmpp) {
             form.addTextField(_AddrItem, "addr", userInfo.homeAddress);
         }
-        
+
         form.addTextField(_CityItem, "city", userInfo.homeCity);
         form.addTextField(_StateItem, "state", userInfo.homeState);
 
@@ -66,8 +66,8 @@ public class EditInfo implements FormListener {
         form.addTextField(_WorkCompanyItem, "title", userInfo.workCompany);
         form.addTextField(_WorkDepartmentItem, "depart", userInfo.workDepartment);
         form.addTextField(_WorkPositionItem, "position", userInfo.workPosition);
-        
-        if (isJabber) {
+
+        if (isXmpp) {
             form.addTextField(_WorkPhoneItem, "phone", userInfo.workPhone);
             form.addTextField(_AboutItem, "notes", userInfo.about);
         }
@@ -80,7 +80,6 @@ public class EditInfo implements FormListener {
     }
 
     private void destroy() {
-        form.destroy();
         protocol = null;
         form = null;
         userInfo = null;
@@ -93,34 +92,34 @@ public class EditInfo implements FormListener {
             destroy();
 
         } else {
-            boolean isJabber = false;
-            isJabber = (protocol instanceof protocol.jabber.Jabber);
+            boolean isXmpp = false;
+            isXmpp = (protocol instanceof protocol.xmpp.Xmpp);
             userInfo.nick = form.getTextFieldValue(_NickNameItem);
             userInfo.birthDay = form.getTextFieldValue(_BdayItem);
-            if (isJabber) {
+            if (isXmpp) {
                 userInfo.email = form.getTextFieldValue(_EmailItem);
                 userInfo.cellPhone = form.getTextFieldValue(_CellPhoneItem);
             }
 
             userInfo.firstName = form.getTextFieldValue(_FirstNameItem);
             userInfo.lastName = form.getTextFieldValue(_LastNameItem);
-            if (!isJabber) {
+            if (!isXmpp) {
                 userInfo.gender = (byte) form.getSelectorValue(_SexItem);
             }
             userInfo.homePage = form.getTextFieldValue(_HomePageItem);
 
-            if (isJabber) {
+            if (isXmpp) {
                 userInfo.homeAddress = form.getTextFieldValue(_AddrItem);
             }
-            
+
             userInfo.homeCity = form.getTextFieldValue(_CityItem);
             userInfo.homeState = form.getTextFieldValue(_StateItem);
 
             userInfo.workCompany = form.getTextFieldValue(_WorkCompanyItem);
             userInfo.workDepartment = form.getTextFieldValue(_WorkDepartmentItem);
             userInfo.workPosition = form.getTextFieldValue(_WorkPositionItem);
-            
-            if (isJabber) {
+
+            if (isXmpp) {
                 userInfo.workPhone = form.getTextFieldValue(_WorkPhoneItem);
                 userInfo.about = form.getTextFieldValue(_AboutItem);
             }

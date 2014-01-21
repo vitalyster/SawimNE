@@ -1,19 +1,14 @@
 package sawim;
 
-import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import protocol.Contact;
 import protocol.Protocol;
 import protocol.net.TcpSocket;
 import ru.sawim.General;
-import ru.sawim.activities.ChatActivity;
-import ru.sawim.activities.FormActivity;
-import ru.sawim.activities.SawimActivity;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
+import ru.sawim.view.FileProgressView;
 import sawim.chat.Chat;
-import sawim.chat.ChatHistory;
-import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.modules.DebugLog;
@@ -22,6 +17,7 @@ import sawim.modules.fs.FileBrowserListener;
 import sawim.modules.fs.FileSystem;
 import sawim.modules.fs.JSR75FileSystem;
 import sawim.modules.photo.PhotoListener;
+import sawim.roster.RosterHelper;
 import sawim.util.JLocale;
 
 import javax.microedition.io.Connector;
@@ -52,17 +48,30 @@ public final class FileTransfer implements FileBrowserListener,
     private Chat chat;
     private JSR75FileSystem file;
     private Forms name_Desc;
-    private FragmentActivity activity;
+    private FileProgressView fileProgressView;
+    private boolean isFinish = false;
 
-    public FileTransfer(FragmentActivity a, Protocol p, Contact _cItem) {
-        activity = a;
+    public FileTransfer(Protocol p, Contact _cItem) {
         protocol = p;
         cItem = _cItem;
     }
 
-    public static boolean isPhotoSupported() {
-        String supports = System.getProperty("video.snapshot.encodings");
-        return !StringConvertor.isEmpty(supports);
+    public void setFinish(boolean finish) {
+        this.isFinish = finish;
+    }
+
+    private void addFileProgress() {
+        fileProgressView = new FileProgressView();
+    }
+
+    private void changeFileProgress(int percent, String caption, String text) {
+        if (fileProgressView != null)
+            fileProgressView.changeFileProgress(percent, caption, text);
+    }
+
+    private void showFileProgress() {
+        if (fileProgressView != null)
+            fileProgressView.showProgress();
     }
 
     public Contact getReceiver() {
@@ -93,20 +102,26 @@ public final class FileTransfer implements FileBrowserListener,
     }
 
     public void startPhotoTransfer() {
-        ExternalApi.instance.setActivity(SawimActivity.getInstance());
+        ExternalApi.instance.setActivity(General.currentActivity);
         ExternalApi.instance.startCamera(this, 1024, 768);
     }
 
     public void onFileSelect(InputStream in, String fileName) {
+        //try {
+        setFileName(fileName);
+        int fileSize = 0;
         try {
-            setFileName(fileName);
-            int fileSize = in.available();
-            setData(in, fileSize);
-            askForNameDesc();
-        } catch (Exception e) {
+            fileSize = in.available();
+        } catch (IOException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        setData(in, fileSize);
+        askForNameDesc();
+        /*} catch (Exception e) {
             closeFile();
             handleException(new SawimException(191, 6));
-        }
+            Log.e("Send", e.getMessage());
+        }*/
     }
 
     public void onFileSelect(String filename) throws SawimException {
@@ -131,22 +146,33 @@ public final class FileTransfer implements FileBrowserListener,
         }
     }
 
+    public void processPhoto(final byte[] data) {
+        setData(new ByteArrayInputStream(data), data.length);
+        String timestamp = Util.getLocalDateString(General.getCurrentGmtTime(), false);
+        String photoName = "photo-"
+                + timestamp.replace('.', '-').replace(' ', '-')
+                + ".jpg";
+        setFileName(photoName);
+        askForNameDesc();
+        showPreview(data);
+    }
+
     public void onDirectorySelect(String s0) {
     }
 
     private void askForNameDesc() {
-        name_Desc = new Forms("name_desc", this);
+        name_Desc = new Forms("name_desc", this, true);
         name_Desc.addString("filename", filename);
         name_Desc.addTextField(descriptionField, "description", "");
         String items = "jimm.net.ru|www.jimm.net.ru|jimm.org";
-        if (cItem instanceof protocol.jabber.JabberContact) {
+        if (cItem instanceof protocol.xmpp.XmppContact) {
             if (cItem.isSingleUserContact() && cItem.isOnline()) {
                 items += "|ibb";
             }
         }
         name_Desc.addSelector(transferMode, "send_via", items, 0);
         name_Desc.addString(JLocale.getString("size") + ": ", String.valueOf(getFileSize() / 1024) + " kb");
-        name_Desc.show(activity);
+        name_Desc.show();
     }
 
     public void formAction(Forms form, boolean apply) {
@@ -163,11 +189,9 @@ public final class FileTransfer implements FileBrowserListener,
                 setProgress(0);
                 new Thread(this).start();
             }
-            cItem.showFileProgress(FormActivity.getInstance());
+            showFileProgress();
         } else {
             destroy();
-            form.back();
-            ContactList.getInstance().activate();
         }
     }
 
@@ -176,7 +200,7 @@ public final class FileTransfer implements FileBrowserListener,
     }
 
     private void changeFileProgress(int percent, String message) {
-        cItem.changeFileProgress(percent, JLocale.getEllipsisString("sending_file"),
+        changeFileProgress(percent, JLocale.getEllipsisString("sending_file"),
                 getProgressText() + "\n"
                         + JLocale.getString(message));
     }
@@ -196,9 +220,9 @@ public final class FileTransfer implements FileBrowserListener,
     private void addProgress() {
         chat = protocol.getChat(cItem);
         chat.activate();
-        cItem.addFileProgress();
+        addFileProgress();
         chat.addFileProgress(JLocale.getEllipsisString("sending_file"), getProgressText());
-        ContactList.getInstance().addTransfer(this);
+        RosterHelper.getInstance().addTransfer(this);
     }
 
     public void setProgress(int percent) {
@@ -214,7 +238,7 @@ public final class FileTransfer implements FileBrowserListener,
             }
             changeFileProgress(percent, JLocale.getEllipsisString("sending_file"));
             if (100 == percent) {
-                ContactList.getInstance().removeTransfer(false);
+                RosterHelper.getInstance().removeTransfer(false);
                 changeFileProgress(percent, "complete");
                 return;
             }
@@ -243,11 +267,13 @@ public final class FileTransfer implements FileBrowserListener,
     public void destroy() {
         try {
             closeFile();
-            ContactList.getInstance().removeTransfer(false);
-            name_Desc.back();
+            RosterHelper.getInstance().removeTransfer(false);
             General.gc();
         } catch (Exception ignored) {
         }
+        name_Desc.back();
+        if (isFinish) General.currentActivity.finish();
+        fileProgressView = null;
     }
 
     public void run() {
@@ -275,23 +301,12 @@ public final class FileTransfer implements FileBrowserListener,
         destroy();
     }
 
-    public void processPhoto(final byte[] data) {
-        setData(new ByteArrayInputStream(data), data.length);
-        String timestamp = Util.getLocalDateString(General.getCurrentGmtTime(), false);
-        String photoName = "photo-"
-                + timestamp.replace('.', '-').replace(' ', '-')
-                + ".jpg";
-        setFileName(photoName);
-        askForNameDesc();
-        showPreview(data);
-    }
-
     private void showPreview(final byte[] image) {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    name_Desc.addBitmap(General.avatarBitmap(image));
+                    name_Desc.addBitmap(ru.sawim.widget.Util.avatarBitmap(image));
                 } catch (Throwable ignored) {
                 }
             }

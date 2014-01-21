@@ -6,8 +6,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import sawim.cl.ContactList;
 import protocol.Protocol;
+import sawim.Options;
+import sawim.modules.DebugLog;
+import sawim.roster.RosterHelper;
 
 public class NetworkStateReceiver extends BroadcastReceiver {
     private String previousNetworkType = null;
@@ -35,10 +37,24 @@ public class NetworkStateReceiver extends BroadcastReceiver {
         return true;
     }
 
+    private void resetConnections() {
+        int count = RosterHelper.getInstance().getProtocolCount();
+        for (int i = 0; i < count; ++i) {
+            Protocol p = RosterHelper.getInstance().getProtocol(i);
+            p.disconnect(false);
+        }
+    }
+
+    private void restoreConnections() {
+        RosterHelper.getInstance().autoConnect();
+    }
+
     @Override
     public void onReceive(Context context, Intent networkIntent) {
         try {
-            if (updateNetworkState(context)) {
+            DebugLog.println("onReceive boolean " +
+                    Options.getBoolean(Options.OPTION_INSTANT_RECONNECTION));
+            if (updateNetworkState(context) && Options.getBoolean(Options.OPTION_INSTANT_RECONNECTION)) {
                 resetConnections();
                 if (isNetworkAvailable) {
                     restoreConnections();
@@ -52,26 +68,12 @@ public class NetworkStateReceiver extends BroadcastReceiver {
         try {
             ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
             NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-
             if ((null != activeNetwork) && activeNetwork.isConnected()) {
                 return activeNetwork.getTypeName();
             }
-
             return null;
         } catch (Exception ignored) {
             return "";
         }
-    }
-
-    private void resetConnections() {
-        int count = ContactList.getInstance().getManager().getProtocolCount();
-        for (int i = 0; i < count; ++i) {
-            Protocol p = ContactList.getInstance().getManager().getProtocol(i);
-            p.disconnect(false);
-        }
-    }
-
-    private void restoreConnections() {
-        ContactList.getInstance().autoConnect();
     }
 }

@@ -1,28 +1,28 @@
 package sawim;
 
+import ru.sawim.General;
 import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
-import sawim.cl.ContactList;
-import sawim.comm.*;
-import sawim.modules.*;
-import sawim.util.*;
 import ru.sawim.activities.SawimActivity;
 import ru.sawim.models.form.ControlStateListener;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
+import sawim.comm.Util;
+import sawim.modules.Answerer;
+import sawim.modules.Notify;
 
 public class OptionsForm implements FormListener, ControlStateListener {
 
     private Forms form;
     private int currentOptionsForm;
 
-    public static final int OPTIONS_ACCOUNT    = 7;
-    public static final int OPTIONS_INTERFACE  = 8;
-    public static final int OPTIONS_SIGNALING  = 9;
-    public static final int OPTIONS_ANTISPAM   = 10;
-    public static final int OPTIONS_ABSENCE    = 11;
-    public static final int OPTIONS_ANSWERER   = 12;
+    public static final int OPTIONS_ACCOUNT = 7;
+    public static final int OPTIONS_INTERFACE = 8;
+    public static final int OPTIONS_SIGNALING = 9;
+    public static final int OPTIONS_ANTISPAM = 10;
+    public static final int OPTIONS_ANSWERER = 12;
+    public static final int OPTIONS_ABOUT = 13;
 
     private void setChecked(String lngStr, int optValue) {
         form.addCheckBox(optValue, lngStr, Options.getBoolean(optValue));
@@ -64,8 +64,16 @@ public class OptionsForm implements FormListener, ControlStateListener {
         form.addVolumeControl(opt, label, Options.getInt(opt));
     }
 
+    private void loadOptionFontGauge(int opt, String label) {
+        form.addFontVolumeControl(opt, label, Options.getInt(opt));
+    }
+
     private void saveOptionGauge(int opt) {
         Options.setInt(opt, form.getVolumeValue(opt));
+    }
+
+    private void saveOptionFontGauge(int opt) {
+        Options.setInt(opt, form.getGaugeValue(opt));
     }
 
     private void loadOptionInt(int opt, String label, String variants) {
@@ -108,35 +116,31 @@ public class OptionsForm implements FormListener, ControlStateListener {
                     saveOptionSelector(Options.OPTION_COLOR_SCHEME);
                     Scheme.setColorScheme(Options.getInt(Options.OPTION_COLOR_SCHEME));
                 }
-                if (JLocale.langAvailable.length > 1) {
-                    int lang = form.getSelectorValue(Options.OPTION_UI_LANGUAGE);
-                    Options.setString(Options.OPTION_UI_LANGUAGE, JLocale.langAvailable[lang]);
-                }
+                //if (JLocale.langAvailable.length > 1) {
+                //    int lang = form.getSelectorValue(Options.OPTION_UI_LANGUAGE);
+                //    Options.setString(Options.OPTION_UI_LANGUAGE, JLocale.langAvailable[lang]);
+                //}
 
-                saveOptionSelector(Options.OPTION_FONT_SCHEME);
+                saveOptionFontGauge(Options.OPTION_FONT_SCHEME);
                 //GraphicsEx.setFontScheme(Options.getInt(Options.OPTION_FONT_SCHEME));
                 //saveOptionInt(Options.OPTION_MIN_ITEM_SIZE, minItemMultipliers);
                 //Scheme.updateUI();
 
                 saveOptionBoolean(Options.OPTION_USER_GROUPS);
-                saveOptionBoolean(Options.OPTION_HIDE_ICONS_CLIENTS);
                 //saveOptionSelector(Options.OPTION_USER_ACCOUNTS);
                 //saveOptionBoolean(Options.OPTION_CL_HIDE_OFFLINE);
-                saveOptionBoolean(Options.OPTION_SAVE_TEMP_CONTACT);
-                saveOptionBoolean(Options.OPTION_SORT_UP_WITH_MSG);
+                //        saveOptionBoolean(Options.OPTION_SAVE_TEMP_CONTACT);
+                //saveOptionBoolean(Options.OPTION_SORT_UP_WITH_MSG);
                 saveOptionBoolean(Options.OPTION_SHOW_STATUS_LINE);
-                saveOptionSelector(Options.OPTION_CL_SORT_BY);
-                saveOptionBoolean(Options.OPTION_SHOW_PLATFORM);
+                //saveOptionSelector(Options.OPTION_CL_SORT_BY);
+                //        saveOptionBoolean(Options.OPTION_SHOW_PLATFORM);
                 saveOptionBoolean(Options.OPTION_HISTORY);
-                //saveOptionSelector(Options.OPTION_CHAT_PRESENSEFONT_SCHEME);
-                //GraphicsEx.setChatPresenseFont(Options.getInt(Options.OPTION_CHAT_PRESENSEFONT_SCHEME));
+                saveOptionBoolean(Options.OPTION_HIDE_KEYBOARD);
+                saveOptionInt(Options.OPTION_MAX_MSG_COUNT);
                 saveOptionBoolean(Options.OPTION_TITLE_IN_CONFERENCE);
                 saveOptionString(Options.UNAVAILABLE_NESSAGE);
                 saveOptionBoolean(Options.OPTION_SIMPLE_INPUT);
-                saveOptionInt(Options.OPTION_MAX_MSG_COUNT);
-
-                ContactList.getInstance().getManager().update();
-                SawimActivity.getInstance().recreateActivity();
+                saveOptionBoolean(Options.OPTION_INSTANT_RECONNECTION);
                 break;
 
             case OPTIONS_SIGNALING:
@@ -157,28 +161,28 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 saveOptionString(Options.OPTION_ANTISPAM_KEYWORDS);
                 saveOptionBoolean(Options.OPTION_ANTISPAM_ENABLE);
                 break;
-
-            case OPTIONS_ABSENCE:
-                Options.setInt(Options.OPTION_AA_TIME, form.getSelectorValue(Options.OPTION_AA_TIME) * 5);
-                break;
         }
         Options.safeSave();
+        General.updateOptions();
     }
-    
+
     public void formAction(Forms form, boolean apply) {
-        if (apply)
-            save(currentOptionsForm);
-        form.back();
+        save(currentOptionsForm);
+        if (Scheme.isChangeTheme(Options.getInt(Options.OPTION_COLOR_SCHEME)))
+            ((SawimActivity) General.currentActivity).recreateActivity();
+        else
+            form.back();
     }
 
     public void select(CharSequence name, int cmd) {
         currentOptionsForm = cmd;
-        form = new Forms(SawimApplication.getContext().getString(R.string.options), this);
+        form = new Forms(SawimApplication.getContext().getString(R.string.options), this, false);
         form.setBackPressedListener(new Forms.OnBackPressed() {
             @Override
             public boolean back() {
                 save(currentOptionsForm);
-                form.destroy();
+                if (Scheme.isChangeTheme(Options.getInt(Options.OPTION_COLOR_SCHEME)))
+                    ((SawimActivity) General.currentActivity).recreateActivity();
                 return true;
             }
         });
@@ -189,7 +193,7 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 if (colorSchemes.length > 1) {
                     form.addSelector(Options.OPTION_COLOR_SCHEME, "color_scheme", colorSchemes, Options.getInt(Options.OPTION_COLOR_SCHEME));
                 }
-                if (JLocale.langAvailable.length > 1) {
+            /*    if (JLocale.langAvailable.length > 1) {
                     int cur = 0;
                     String curLang = Options.getString(Options.OPTION_UI_LANGUAGE);
                     for (int j = 0; j < JLocale.langAvailable.length; ++j) {
@@ -198,38 +202,34 @@ public class OptionsForm implements FormListener, ControlStateListener {
                         }
                     }
                     form.addSelector(Options.OPTION_UI_LANGUAGE, "language", JLocale.langAvailableName, cur);
-                }
-                createSelector("fonts",
-                        "10sp" + "|" + "fonts_smallest" + "|" + "fonts_small" + "|" + "fonts_normal" + "|" + "fonts_large",
-                        Options.OPTION_FONT_SCHEME);
-                //loadOptionInt(Options.OPTION_MIN_ITEM_SIZE, "item_height_multiplier", minItems, minItemMultipliers);
+                }*/
+                loadOptionFontGauge(Options.OPTION_FONT_SCHEME, "fonts");
 
                 form.addString("contact_list", null);
                 setChecked("show_user_groups", Options.OPTION_USER_GROUPS);
-                setChecked_(SawimApplication.getContext().getString(R.string.hide_icons_clients), Options.OPTION_HIDE_ICONS_CLIENTS);
-                
+
                 //createSelector("show_user_accounts",
                 //        "no" + "|" + "by_groups" + "|" + "by_windows", Options.OPTION_USER_ACCOUNTS);
-                
-                //setChecked("hide_offline", Options.OPTION_CL_HIDE_OFFLINE);
-                setChecked("save_temp_contacts", Options.OPTION_SAVE_TEMP_CONTACT);
-                setChecked("show_status_line", Options.OPTION_SHOW_STATUS_LINE);
-                setChecked("contacts_with_msg_at_top", Options.OPTION_SORT_UP_WITH_MSG);
 
-                createSelector("sort_by",
-                        "sort_by_status" + "|" + "sort_by_online" + "|" + "sort_by_name",
-                        Options.OPTION_CL_SORT_BY);
+                //setChecked("hide_offline", Options.OPTION_CL_HIDE_OFFLINE);
+                //        setChecked("save_temp_contacts", Options.OPTION_SAVE_TEMP_CONTACT);
+                setChecked("show_status_line", Options.OPTION_SHOW_STATUS_LINE);
+                //    setChecked("contacts_with_msg_at_top", Options.OPTION_SORT_UP_WITH_MSG);
+
+                //createSelector("sort_by",
+                //        "sort_by_status" + "|" + "sort_by_online" + "|" + "sort_by_name",
+                //        Options.OPTION_CL_SORT_BY);
 
                 form.addString("chat", null);
-				setChecked("show_platform", Options.OPTION_SHOW_PLATFORM);
+                //		setChecked("show_platform", Options.OPTION_SHOW_PLATFORM);
+                setChecked(SawimApplication.getContext().getString(R.string.hide_chat_keyboard), Options.OPTION_HIDE_KEYBOARD);
                 setChecked("use_history", Options.OPTION_HISTORY);
                 loadOptionInt(Options.OPTION_MAX_MSG_COUNT, "max_message_count", "10|50|100|250|500|1000");
-				//createSelector("presense_fonts",
-                //        "10sp" + "|" + "fonts_smallest" + "|" + "fonts_small" + "|" + "fonts_normal" + "|" + "fonts_large",
-                //        Options.OPTION_CHAT_PRESENSEFONT_SCHEME);
-				setChecked("title_in_conference",  Options.OPTION_TITLE_IN_CONFERENCE);
-				loadOptionString(Options.UNAVAILABLE_NESSAGE, "post_outputs");
+
+                setChecked("title_in_conference", Options.OPTION_TITLE_IN_CONFERENCE);
+                loadOptionString(Options.UNAVAILABLE_NESSAGE, "post_outputs");
                 setChecked("use_simple_input", Options.OPTION_SIMPLE_INPUT);
+                setChecked(SawimApplication.getContext().getString(R.string.instant_reconnection), Options.OPTION_INSTANT_RECONNECTION);
                 break;
 
             case OPTIONS_SIGNALING:
@@ -243,7 +243,7 @@ public class OptionsForm implements FormListener, ControlStateListener {
                         "onl_notification");
                 setChecked("alarm", Options.OPTION_ALARM);
                 setChecked("blog_notify", Options.OPTION_BLOG_NOTIFY);
-                
+
                 createSelector("typing_notify",
                         "no" + "|" + "typing_incoming" + "|" + "typing_both",
                         Options.OPTION_TYPING_MODE);
@@ -262,38 +262,18 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 loadOptionString(Options.OPTION_ANTISPAM_KEYWORDS, "antispam_keywords");
                 break;
 
-            case OPTIONS_ABSENCE:
-                form.addSelector(Options.OPTION_AA_TIME, "after_time", "off" + "|5 |10 |15 ", Options.getInt(Options.OPTION_AA_TIME) / 5);
-                break;
-
-      		case OPTIONS_ANSWERER:
-				Answerer.getInstance().activate();
-				return;
+            case OPTIONS_ANSWERER:
+                Answerer.getInstance().activate();
+                return;
         }
         form.setControlStateListener(this);
-        form.show();
+        form.preferenceFormShow();
     }
 
     public void controlStateChanged(int id) {
         switch (id) {
-            case Options.OPTION_COLOR_SCHEME:
-                //saveOptionSelector(Options.OPTION_COLOR_SCHEME);
-                //Scheme.setColorScheme(Options.getInt(Options.OPTION_COLOR_SCHEME));
-                //Scheme.updateUI();
-                break;
             case Options.OPTION_FONT_SCHEME:
                 saveOptionSelector(Options.OPTION_FONT_SCHEME);
-                //GraphicsEx.setFontScheme(Options.getInt(Options.OPTION_FONT_SCHEME));
-                //Scheme.updateUI();
-                break;
-			case Options.OPTION_CHAT_PRESENSEFONT_SCHEME:
-				//saveOptionSelector(Options.OPTION_CHAT_PRESENSEFONT_SCHEME);
-                //GraphicsEx.setChatPresenseFont(Options.getInt(Options.OPTION_CHAT_PRESENSEFONT_SCHEME));
-				//Scheme.updateUI();
-                break;
-            case Options.OPTION_MIN_ITEM_SIZE:
-                //saveOptionInt(Options.OPTION_MIN_ITEM_SIZE, minItemMultipliers);
-                //Scheme.updateUI();
                 break;
         }
     }

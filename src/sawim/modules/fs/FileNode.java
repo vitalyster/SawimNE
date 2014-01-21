@@ -1,20 +1,20 @@
-
-
-
 package sawim.modules.fs;
 
-import sawim.comm.Sortable;
+import sawim.roster.TreeNode;
 
-
-public class FileNode implements Sortable {
+public class FileNode extends TreeNode {
     final private String path;
     final private String filename;
     private long size = -1;
 
-    
     public FileNode(String path, String filename) {
         this.path = path;
         this.filename = filename;
+    }
+
+    @Override
+    public byte getType() {
+        return 0;
     }
 
     public String getText() {
@@ -34,12 +34,15 @@ public class FileNode implements Sortable {
     public boolean isDir() {
         return filename.endsWith("/");
     }
+
     public boolean isParentDir() {
         return filename.equals(FileSystem.PARENT_DIRECTORY);
     }
+
     public boolean isDisk() {
         return path.equals(FileSystem.ROOT_DIRECTORY);
     }
+
     public boolean isFile() {
         return !isDir();
     }
@@ -60,7 +63,7 @@ public class FileNode implements Sortable {
         }
         return size;
     }
-    
+
     public String getFullName() {
         if (isParentDir()) {
             int d = path.lastIndexOf('/', path.length() - 2);

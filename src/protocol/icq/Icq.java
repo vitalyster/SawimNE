@@ -2,7 +2,6 @@ package protocol.icq;
 
 import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
-import android.support.v4.app.FragmentActivity;
 import protocol.*;
 import protocol.icq.action.*;
 import protocol.icq.packet.Packet;
@@ -11,11 +10,11 @@ import protocol.icq.packet.ToIcqSrvPacket;
 import protocol.icq.plugin.XtrazMessagePlugin;
 import sawim.Options;
 import sawim.chat.message.PlainMessage;
-import sawim.cl.ContactList;
 import sawim.comm.GUID;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.forms.PrivateStatusForm;
+import sawim.roster.RosterHelper;
 import sawim.search.Search;
 import sawim.search.UserInfo;
 import sawim.util.JLocale;
@@ -90,7 +89,6 @@ public class Icq extends Protocol {
     protected void initStatusInfo() {
         info = new StatusInfo(statusIcons, statusIconIndex, statuses);
         xstatusInfo = Icq.xstatus.getInfo();
-        clientInfo = ClientDetector.instance.get();
     }
 
     public boolean isEmpty() {
@@ -221,7 +219,7 @@ public class Icq extends Protocol {
         requestSimpleAction(act);
     }
 
-    protected void startConnection() {
+    public void startConnection() {
         connection = new IcqNetWorking();
         connection.initNet(this);
         ConnectAction act = new ConnectAction(this);
@@ -247,30 +245,30 @@ public class Icq extends Protocol {
                 UpdateContactListAction.ACTION_DEL));
     }
 
-    protected void doAction(FragmentActivity a, Contact contact, int action) {
+    protected void doAction(Contact contact, int action) {
         switch (action) {
             case IcqContact.USER_MENU_REMOVE_ME:
                 sendRemoveMePacket(contact.getUserId());
-                ContactList.getInstance().activate();
+                RosterHelper.getInstance().updateRoster();
                 break;
 
-            case Contact.USER_MENU_PS_VISIBLE:
-            case Contact.USER_MENU_PS_INVISIBLE:
-            case Contact.USER_MENU_PS_IGNORE:
+            case ContactMenu.USER_MENU_PS_VISIBLE:
+            case ContactMenu.USER_MENU_PS_INVISIBLE:
+            case ContactMenu.USER_MENU_PS_IGNORE:
                 int list = IGNORE_LIST;
                 switch (action) {
-                    case Contact.USER_MENU_PS_VISIBLE:
+                    case ContactMenu.USER_MENU_PS_VISIBLE:
                         list = VISIBLE_LIST;
                         break;
-                    case Contact.USER_MENU_PS_INVISIBLE:
+                    case ContactMenu.USER_MENU_PS_INVISIBLE:
                         list = INVISIBLE_LIST;
                         break;
-                    case Contact.USER_MENU_PS_IGNORE:
+                    case ContactMenu.USER_MENU_PS_IGNORE:
                         list = IGNORE_LIST;
                         break;
                 }
                 changeServerList(list, (IcqContact) contact);
-                ContactList.getInstance().activate();
+                RosterHelper.getInstance().updateRoster();
                 break;
 
         }
@@ -410,14 +408,14 @@ public class Icq extends Protocol {
         if (id == privateStatusId) {
             return true;
         }
-        for (int i = groups.size() - 1; i >= 0; --i) {
-            Group group = (Group) groups.elementAt(i);
+        for (int i = getGroupItems().size() - 1; i >= 0; --i) {
+            Group group = (Group) getGroupItems().elementAt(i);
             if (group.getId() == id) {
                 return true;
             }
         }
-        for (int i = contacts.size() - 1; i >= 0; --i) {
-            IcqContact item = (IcqContact) contacts.elementAt(i);
+        for (int i = getContactItems().size() - 1; i >= 0; --i) {
+            IcqContact item = (IcqContact) getContactItems().elementAt(i);
             if ((item.getContactId() == id)) {
                 return true;
             }
@@ -906,7 +904,7 @@ public class Icq extends Protocol {
         sendAuthResult(userId, false);
     }
 
-    public void showUserInfo(FragmentActivity a, Contact contact) {
+    public void showUserInfo(Contact contact) {
         final UserInfo data;
         if (isConnected()) {
             data = getUserInfo(contact);
@@ -923,8 +921,7 @@ public class Icq extends Protocol {
     }
 
     public void showStatus(Contact contact) {
-        StatusView statusView = ContactList.getInstance().getStatusView();
-        ContactList.getInstance().setCurrentContact(contact);
+        StatusView statusView = RosterHelper.getInstance().getStatusView();
         _updateStatusView(statusView, contact);
         statusView.showIt();
         if ((XStatusInfo.XSTATUS_NONE != contact.getXStatusIndex())
@@ -935,7 +932,7 @@ public class Icq extends Protocol {
     }
 
     public void updateStatusView(Contact contact) {
-        StatusView statusView = ContactList.getInstance().getStatusView();
+        StatusView statusView = RosterHelper.getInstance().getStatusView();
         if (contact == statusView.getContact()) {
             _updateStatusView(statusView, contact);
         }

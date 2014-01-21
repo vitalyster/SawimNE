@@ -2,17 +2,20 @@ package ru.sawim.models;
 
 import DrawControls.icons.Icon;
 import android.content.Context;
-import android.graphics.Color;
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
-import sawim.forms.PrivateStatusForm;
-import sawim.util.JLocale;
+import android.widget.BaseAdapter;
+import android.widget.ImageView;
+import android.widget.TextView;
 import protocol.Protocol;
 import protocol.StatusInfo;
 import ru.sawim.R;
+import ru.sawim.Scheme;
 import ru.sawim.view.StatusesView;
+import sawim.forms.PrivateStatusForm;
+import sawim.util.JLocale;
 
 /**
  * Created with IntelliJ IDEA.
@@ -41,7 +44,7 @@ public class StatusesAdapter extends BaseAdapter {
     public int getCount() {
         if (type == StatusesView.ADAPTER_STATUS)
             return statusInfo.applicableStatuses.length;
-        else return PrivateStatusForm.statusNames(protocol).length;
+        else return PrivateStatusForm.statusIds(protocol).length;
     }
 
     @Override
@@ -74,55 +77,40 @@ public class StatusesAdapter extends BaseAdapter {
         }
         int item = getItem(position);
         wr.populateFrom(item);
-        LinearLayout activeItem = (LinearLayout) row;
-        if (item == selectedItem) {
-            activeItem.setBackgroundColor(Color.BLUE);
-        } else {
-            activeItem.setBackgroundColor(Color.WHITE);
-        }
         return row;
     }
 
     public class ItemWrapper {
         View item = null;
-
         private TextView itemStatus = null;
-
         private ImageView itemImage = null;
 
         public ItemWrapper(View item) {
             this.item = item;
+            itemImage = (ImageView) item.findViewById(R.id.status_image);
+            itemStatus = (TextView) item.findViewById(R.id.status);
         }
 
         void populateFrom(int item) {
-            ImageView imageView = getItemImage();
             if (type == StatusesView.ADAPTER_STATUS) {
                 Icon ic = statusInfo.getIcon((byte) item);
-                getItemStatus().setText(statusInfo.getName((byte) item));
+                itemStatus.setTextColor(Scheme.getColor(Scheme.THEME_TEXT));
+                itemStatus.setText(statusInfo.getName((byte) item));
                 if (ic != null) {
-                    imageView.setVisibility(ImageView.VISIBLE);
-                    getItemImage().setImageBitmap(ic.getImage());
+                    itemImage.setVisibility(ImageView.VISIBLE);
+                    itemImage.setImageDrawable(ic.getImage());
                 } else {
-                    imageView.setVisibility(ImageView.GONE);
+                    itemImage.setVisibility(ImageView.GONE);
                 }
             } else {
-                getItemStatus().setText(JLocale.getString(PrivateStatusForm.statusNames(protocol)[item]));
-                imageView.setImageBitmap(PrivateStatusForm.privateStatusIcons.iconAt(item).getImage());
+                itemStatus.setText(JLocale.getString(PrivateStatusForm.statusNames()[item]));
+                itemImage.setImageDrawable(PrivateStatusForm.privateStatusIcons.iconAt(item).getImage());
             }
-        }
-
-        public TextView getItemStatus() {
-            if (itemStatus == null) {
-                itemStatus = (TextView) item.findViewById(R.id.itemStatus);
+            if (item == selectedItem) {
+                itemStatus.setTypeface(Typeface.DEFAULT_BOLD);
+            } else {
+                itemStatus.setTypeface(Typeface.DEFAULT);
             }
-            return itemStatus;
-        }
-
-        public ImageView getItemImage() {
-            if (itemImage == null) {
-                itemImage = (ImageView) item.findViewById(R.id.first_image);
-            }
-            return itemImage;
         }
     }
 }

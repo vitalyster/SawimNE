@@ -1,17 +1,17 @@
 package sawim.modules.tracking;
 
 import DrawControls.icons.Icon;
+import android.graphics.drawable.Drawable;
 import protocol.Contact;
 import protocol.Protocol;
 import protocol.icq.Icq;
 import protocol.mrim.Mrim;
 import ru.sawim.General;
+import ru.sawim.activities.SawimActivity;
 import sawim.chat.Chat;
-import sawim.chat.message.Message;
 import sawim.chat.message.PlainMessage;
-import sawim.cl.ContactList;
-import sawim.modules.MagicEye;
 import sawim.modules.Notify;
+import sawim.roster.RosterHelper;
 import sawim.util.JLocale;
 
 import javax.microedition.rms.RecordStore;
@@ -32,11 +32,9 @@ public final class Tracking {
     public final static int EVENT_MESSAGE = 4;
     public final static int EVENT_TYPING = 5;
     public final static int EVENT_XSTATUS = 6;
-    public final static int SOUND_EYE = 7;
     public final static int ACTION_CHAT = 10;
     public final static int ACTION_NOTICE = 11;
     public final static int ACTION_SOUND = 12;
-    public final static int ACTION_EYE = 13;
     public final static int ACTION_VIBRA = 14;
     public final static int ACTION_MESSAGE = 15;
     public final static int ACTION_MESSAGE_TEXT = 16;
@@ -108,7 +106,6 @@ public final class Tracking {
             if (line.status_flag == 0) continue;
 
             Track track = new Track();
-            track.idIcon = TrackingForm.TRACK;
             track.uin = uin;
             track.idEvent = line.id_event;
             track.idAction = line.id_action;
@@ -173,7 +170,6 @@ public final class Tracking {
                 track.idAction = Integer.valueOf(getRMSRecordValue(rms, i + TRACK_PARAM_ACTION_ID)).intValue();
 
                 track.valueAction = getRMSRecordValue(rms, i + TRACK_PARAM_ACTION_VALUE);
-                track.idIcon = TrackingForm.TRACK;
                 addTracking(track);
             }
             rms.closeRecordStore();
@@ -293,37 +289,13 @@ public final class Tracking {
         return TRUE;
     }
 
-    public static Icon getTrackIcon(String uin) {
-        Icon ret = null;
+    public static Drawable getTrackIcon(String uin) {
         for (int i = 0; i < actions.size(); i++) {
             Track track = getTracking(i);
             if (!track.uin.equals(uin)) continue;
-            switch (track.idIcon) {
-                case TrackingForm.TRACK:
-                    ret = TrackingForm.getTrackIcon();
-                    break;
-                case TrackingForm.TRACKON:
-                    ret = TrackingForm.getTrackONIcon();
-                    break;
-                case TrackingForm.TRACKOFF:
-                    ret = TrackingForm.getTrackOFFIcon();
-                    break;
-                case TrackingForm.TRACKONOFF:
-                    ret = TrackingForm.getTrackONOFFIcon();
-                    break;
-            }
-            break;
+            return TrackingForm.getTrackIcon();
         }
-        return ret;
-    }
-
-    public static void setTrackIcon(String uin, int icon_index) {
-        for (int i = 0; i < actions.size(); i++) {
-            Track track = getTracking(i);
-            if (!track.uin.equals(uin)) continue;
-            track.idIcon = icon_index;
-            setTracking(track, i);
-        }
+        return null;
     }
 
     public static void beginTrackAction(Contact item, int event) {
@@ -371,16 +343,17 @@ public final class Tracking {
         Chat chat_ = new Chat(protocol, item);
         switch (action) {
             case ACTION_CHAT:
-
+                ((SawimActivity) General.currentActivity).openChat(chat.getProtocol(), chat.getContact(), true);
                 break;
             case ACTION_NOTICE:
-                //new Alert(JLocale.getString("track_form_title")+" "+item.getName(), item.getName()+" ["+item.getUserId()+"] "+JLocale.getString("track_action_online")).show();
+                RosterHelper.getInstance().activateWithMsg(JLocale.getString("track_form_title")
+                        + " " + item.getName() + "\n" + item.getName() + " [" + item.getUserId() + "] " + JLocale.getString("track_action_online"));
                 break;
             case ACTION_INCHAT:
                 String notice = JLocale.getString("track_action_online");
                 PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, General.getCurrentGmtTime(), notice, true);
-                plainMsg.setSendingState(Message.ICON_MSG_TRACK);
-
+                //plainMsg.setSendingState(Message.ICON_MSG_TRACK);
+                chat.addMyMessage(plainMsg);
                 break;
             case ACTION_SOUND:
                 Notify.getSound().playSoundForExtra(Notify.NOTIFY_ONLINE);
@@ -388,21 +361,13 @@ public final class Tracking {
             case ACTION_VIBRA:
                 vibration();
                 break;
-            case ACTION_ICON:
-                setTrackIcon(item.getUserId(), TrackingForm.TRACKON);
-                break;
-
-            case ACTION_EYE:
-                MagicEye.addAction(item.getProtocol(), item.getUserId(), JLocale.getString("track_action_online"));
-                break;
-
             case ACTION_MESSAGE_TEXT:
                 Track track_prev = getTrackingMessageByTrackMessageText(track);
                 if (track_prev != null) {
                     if (track_prev.idAction == ACTION_MESSAGE) {
                         String str = track.valueAction;
                         if (str.length() != 0)
-                            ContactList.getInstance().getManager().getCurrentProtocol().sendMessage(item, str, true);
+                            RosterHelper.getInstance().getCurrentProtocol().sendMessage(item, str, true);
                     }
                 }
                 break;
@@ -415,26 +380,18 @@ public final class Tracking {
         Chat chat_ = new Chat(protocol, item);
         switch (action) {
             case ACTION_NOTICE:
-                //new Alert(JLocale.getString("track_form_title")+" "+item.getName(), item.getName()+" ["+item.getUserId()+"] "+JLocale.getString("track_action_offline")).show();
+                RosterHelper.getInstance().activateWithMsg(JLocale.getString("track_form_title")
+                        + " " + item.getName() + "\n" + item.getName() + " [" + item.getUserId() + "] " + JLocale.getString("track_action_offline"));
                 break;
             case ACTION_INCHAT:
                 String notice = JLocale.getString("track_action_offline");
                 PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, General.getCurrentGmtTime(), notice, true);
-                plainMsg.setSendingState(Message.ICON_MSG_TRACK);
-
-                break;
-
-            case ACTION_ICON:
-                setTrackIcon(item.getUserId(), TrackingForm.TRACKOFF);
+                //plainMsg.setSendingState(Message.ICON_MSG_TRACK);
+                chat.addMyMessage(plainMsg);
                 break;
             case ACTION_VIBRA:
                 vibration();
                 break;
-
-            case ACTION_EYE:
-                MagicEye.addAction(item.getProtocol(), item.getUserId(), JLocale.getString("track_action_offline"));
-                break;
-
         }
     }
 
@@ -446,7 +403,6 @@ public final class Tracking {
         Protocol protocol = item.getProtocol();
         Chat chat = protocol.getChat(item);
         Chat chat_ = new Chat(protocol, item);
-
         if (protocol instanceof Icq) {
             if (event == EVENT_STATUS) {
                 status_comm = JLocale.getString("track_action_status") + " ";
@@ -477,18 +433,11 @@ public final class Tracking {
         switch (action) {
             case ACTION_INCHAT:
                 PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, General.getCurrentGmtTime(), status_comm, true);
-                plainMsg.setSendingState(Message.ICON_MSG_TRACK);
-                break;
-
-            case ACTION_ICON:
-                setTrackIcon(item.getUserId(), TrackingForm.TRACKONOFF);
+                //plainMsg.setSendingState(Message.ICON_MSG_TRACK);
+                chat.addMyMessage(plainMsg);
                 break;
             case ACTION_VIBRA:
                 vibration();
-                break;
-
-            case ACTION_EYE:
-                MagicEye.addAction(protocol, item.getUserId(), status_name, status_comm, icon_status);
                 break;
         }
     }
@@ -501,7 +450,6 @@ public final class Tracking {
             case ACTION_SOUND:
                 Notify.getSound().playSoundForExtra(Notify.NOTIFY_MESSAGE);
                 break;
-
         }
     }
 
@@ -521,7 +469,6 @@ public final class Tracking {
     }
 
     public static class Track {
-        int idIcon;
         String uin;
         int idEvent;
         int idAction;

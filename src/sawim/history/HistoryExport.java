@@ -1,9 +1,9 @@
 package sawim.history;
 
 
+import protocol.Contact;
 import ru.sawim.General;
 import sawim.SawimException;
-import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.modules.Notify;
@@ -11,8 +11,8 @@ import sawim.modules.fs.FileBrowser;
 import sawim.modules.fs.FileBrowserListener;
 import sawim.modules.fs.FileSystem;
 import sawim.modules.fs.JSR75FileSystem;
+import sawim.roster.RosterHelper;
 import sawim.util.JLocale;
-import protocol.Contact;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,6 +23,7 @@ class HistoryExport implements Runnable, FileBrowserListener {
     private String directory;
 
     private HistoryStorageList screen;
+    private JSR75FileSystem file;
     String contact;
     int currentMessage;
     int messageCount;
@@ -39,12 +40,26 @@ class HistoryExport implements Runnable, FileBrowserListener {
     }
 
     public void onFileSelect(String s0) throws SawimException {
+       /* file = FileSystem.getSawimActivity();
+        try {
+            file.openFile(filename);
+            setFileName(file.getName());
+
+            InputStream is = file.openInputStream();
+            int fileSize = (int) file.fileSize();
+            setData(is, fileSize);
+            askForNameDesc();
+        } catch (Exception e) {
+            closeFile();
+            throw new SawimException(191, 3);
+        }*/
     }
 
     public void onDirectorySelect(String dir) {
         directory = dir;
         new Thread(this).start();
     }
+
     private void setProgress(int messageNum) {
         currentMessage = messageNum;
         //screen.invalidate();
@@ -53,28 +68,29 @@ class HistoryExport implements Runnable, FileBrowserListener {
     public void run() {
         try {
             exportContact(exportHistory);
-            
+
             Notify.getSound().playSoundNotification(Notify.NOTIFY_MESSAGE);
-            
+
             //screen.exportDone();
         } catch (Exception ex) {
             SawimException e = new SawimException(191, 5);
             if (ex instanceof SawimException) {
                 e = (SawimException) ex;
             }
-            ContactList.getInstance().activateWithMsg(e.getMessage());
+            RosterHelper.getInstance().activateWithMsg(e.getMessage());
         }
     }
 
     private void write(OutputStream os, String val) throws IOException {
         os.write(StringConvertor.stringToByteArrayUtf8(val));
     }
+
     private void exportUinToStream(HistoryStorage storage, OutputStream os) throws IOException {
         messageCount = storage.getHistorySize();
         if (0 == messageCount) {
             return;
         }
-        os.write(new byte[] { (byte) 0xef, (byte) 0xbb, (byte) 0xbf });
+        os.write(new byte[]{(byte) 0xef, (byte) 0xbb, (byte) 0xbf});
 
         Contact c = storage.getContact();
         String userId = c.getUserId();
@@ -91,7 +107,7 @@ class HistoryExport implements Runnable, FileBrowserListener {
         int guiStep = Math.max(messageCount / 100, 1) * 5;
         for (int i = 0, curStep = 0; i < messageCount; ++i) {
             CachedRecord record = storage.getRecord(i);
-            write(os, " " + ((record.type == 0) ? nick : me)
+            write(os, " " + ((record.type == 0) ? (c.isConference() ? record.from : nick) : me)
                     + " (" + record.date + "):\r\n");
             write(os, StringConvertor.restoreCrLf(record.text) + "\r\n");
             curStep++;
@@ -123,6 +139,7 @@ class HistoryExport implements Runnable, FileBrowserListener {
         }
         return null;
     }
+
     private void exportContact(HistoryStorage storage) throws Exception {
 
         storage.openHistory();
@@ -140,6 +157,15 @@ class HistoryExport implements Runnable, FileBrowserListener {
         } finally {
             storage.closeHistory();
         }
+    }
+
+    private void closeFile() {
+        if (null != file) {
+            file.close();
+            file = null;
+        }
+        //TcpSocket.close(fis);
+        //fis = null;
     }
 }
 

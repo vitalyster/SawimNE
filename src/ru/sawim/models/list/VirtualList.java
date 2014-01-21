@@ -1,24 +1,31 @@
 package ru.sawim.models.list;
 
-import android.content.Intent;
-import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
-import ru.sawim.SawimApplication;
-import ru.sawim.activities.VirtualListActivity;
-import ru.sawim.activities.SawimActivity;
+import ru.sawim.view.VirtualListView;
 
 public class VirtualList {
-    protected VirtualListModel model;
+    private VirtualListModel model;
     private String caption;
-    private static VirtualList instance = new VirtualList();
+    private static VirtualList instance;
     private OnVirtualListListener virtualListListener;
     private OnBuildOptionsMenu buildOptionsMenu;
     private OnBuildContextMenu buildContextMenu;
     private OnClickListListener itemClickListListener;
 
+    private VirtualList() {
+        super();
+    }
+
     public static VirtualList getInstance() {
+        if (instance == null) {
+            synchronized (VirtualList.class) {
+                if (instance == null) {
+                    instance = new VirtualList();
+                }
+            }
+        }
         return instance;
     }
 
@@ -56,6 +63,7 @@ public class VirtualList {
 
     public interface OnClickListListener {
         void itemSelected(int position);
+
         boolean back();
     }
 
@@ -69,9 +77,12 @@ public class VirtualList {
 
     public interface OnVirtualListListener {
         void update();
+
         void back();
+
         int getCurrItem();
-        void setCurrentItemIndex(int index);
+
+        void setCurrentItemIndex(int index, boolean isSelected);
     }
 
     public void updateModel() {
@@ -90,14 +101,15 @@ public class VirtualList {
         return 0;
     }
 
-    public void setCurrentItemIndex(int currentItemIndex) {
+    public void setCurrentItemIndex(int currentItemIndex, boolean isSelected) {
         if (virtualListListener != null)
-            virtualListListener.setCurrentItemIndex(currentItemIndex);
+            virtualListListener.setCurrentItemIndex(currentItemIndex, isSelected);
     }
 
     public interface OnBuildOptionsMenu {
         void onCreateOptionsMenu(Menu menu);
-        void onOptionsItemSelected(FragmentActivity activity, MenuItem item);
+
+        void onOptionsItemSelected(MenuItem item);
     }
 
     public OnBuildOptionsMenu getBuildOptionsMenu() {
@@ -110,6 +122,7 @@ public class VirtualList {
 
     public interface OnBuildContextMenu {
         void onCreateContextMenu(ContextMenu menu, int listItem);
+
         void onContextItemSelected(int listItem, int itemMenuId);
     }
 
@@ -122,10 +135,7 @@ public class VirtualList {
     }
 
     public void show() {
-        SawimActivity.getInstance().startActivity(new Intent(SawimActivity.getInstance(), VirtualListActivity.class));
-    }
-
-    public void showCrashLog() {
-        SawimApplication.getInstance().startActivity(new Intent(SawimApplication.getInstance(), VirtualListActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        VirtualListView.show();
+        updateModel();
     }
 }

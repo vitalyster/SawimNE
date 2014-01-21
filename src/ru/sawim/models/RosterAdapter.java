@@ -1,33 +1,31 @@
 package ru.sawim.models;
 
 import DrawControls.icons.Icon;
-import DrawControls.icons.ImageList;
-import DrawControls.tree.TreeNode;
-import DrawControls.tree.VirtualContactList;
+import android.content.Context;
 import android.database.DataSetObserver;
 import android.graphics.Typeface;
-import android.util.Log;
-import android.view.LayoutInflater;
+import android.graphics.drawable.BitmapDrawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.ImageView;
-import android.widget.TextView;
 import protocol.Contact;
 import protocol.Group;
 import protocol.Protocol;
 import protocol.XStatusInfo;
-import protocol.mrim.Mrim;
-import protocol.mrim.MrimPhoneContact;
 import ru.sawim.General;
-import ru.sawim.R;
+import ru.sawim.SawimResources;
 import ru.sawim.Scheme;
-import sawim.Options;
+import ru.sawim.widget.roster.RosterItemView;
 import sawim.chat.ChatHistory;
 import sawim.chat.message.Message;
+import sawim.comm.Util;
 import sawim.modules.tracking.Tracking;
+import sawim.roster.RosterHelper;
+import sawim.roster.TreeNode;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Vector;
 
 /**
  * Created with IntelliJ IDEA.
@@ -38,18 +36,13 @@ import java.util.List;
  */
 public class RosterAdapter extends BaseAdapter {
 
-    public static final int ALL_CONTACTS = 0;
-    public static final int ONLINE_CONTACTS = 1;
-    public static final int OPEN_CHATS = 2;
-    private VirtualContactList vcl;
-    private List<TreeNode> items;
-    private LayoutInflater mInflater;
+    private final Context context;
     private int type;
+    private List<TreeNode> items = new ArrayList<TreeNode>();
+    private Vector updateQueue = new Vector();
 
-    public RosterAdapter(LayoutInflater inf, VirtualContactList vcl, List<TreeNode> drawItems, int type) {
-        mInflater = inf;
-        this.vcl = vcl;
-        items = drawItems;
+    public RosterAdapter(Context context, int type) {
+        this.context = context;
         this.type = type;
     }
 
@@ -75,6 +68,34 @@ public class RosterAdapter extends BaseAdapter {
         return i;
     }
 
+    public void putIntoQueue(Group g) {
+        if (-1 == Util.getIndex(updateQueue, g)) {
+            updateQueue.addElement(g);
+        }
+    }
+
+    public void buildFlatItems() {
+        RosterHelper roster = RosterHelper.getInstance();
+        Protocol p = roster.getCurrentProtocol();
+        if (p == null) return;
+        while (!updateQueue.isEmpty()) {
+            Group group = (Group) updateQueue.firstElement();
+            updateQueue.removeElementAt(0);
+            synchronized (p.getRosterLockObject()) {
+                roster.updateGroup(group);
+            }
+        }
+        items.clear();
+        synchronized (p.getRosterLockObject()) {
+            if (roster.useGroups) {
+                roster.rebuildFlatItemsWG(p, items);
+            } else {
+                roster.rebuildFlatItemsWOG(p, items);
+            }
+        }
+        notifyDataSetChanged();
+    }
+
     @Override
     public void unregisterDataSetObserver(DataSetObserver observer) {
         if (observer != null) {
@@ -82,207 +103,103 @@ public class RosterAdapter extends BaseAdapter {
         }
     }
 
-    @Override
-    public View getView(int i, View convertView, ViewGroup viewGroup) {
-        TreeNode o = getItem(i);
-        ViewHolderRoster holder;
-        Protocol protocol = vcl.getProtocol(vcl.getCurrProtocol());
-        if (convertView == null) {
-            convertView = mInflater.inflate(R.layout.roster_item, null);
-            holder = new ViewHolderRoster(vcl, convertView);
-            convertView.setTag(holder);
-        } else {
-            holder = (ViewHolderRoster) convertView.getTag();
-        }
-        if ((type == OPEN_CHATS || type == ONLINE_CONTACTS) && o.isContact()) {
-            Contact c = (Contact) o;
-            if (type == OPEN_CHATS)
-                holder.populateFromContact(c.getProtocol(), c);
-            else
-                holder.populateFromContact(protocol, (Contact) o);
-        } else {
-            if (o != null)
-                if (o.isGroup()) {
-                    holder.populateFromGroup((Group) o);
-                } else if (o.isContact()) {
-                    holder.populateFromContact(protocol, (Contact) o);
-                }
-        }
-        return convertView;
+    void populateFromGroup(RosterItemView rosterItemView, Group g) {
+        rosterItemView.itemNameColor = Scheme.getColor(Scheme.THEME_GROUP);
+        rosterItemView.itemNameFont = Typeface.DEFAULT;
+        rosterItemView.itemName = g.getText();
+
+        Icon icGroup = g.getLeftIcon(null);
+        if (icGroup != null)
+            rosterItemView.itemFirstImage = icGroup.getImage().getBitmap();
+
+        BitmapDrawable messIcon = ChatHistory.instance.getUnreadMessageIcon(g.getContacts());
+        if (!g.isExpanded() && messIcon != null)
+            rosterItemView.itemFourthImage = messIcon.getBitmap();
     }
 
-    static class ViewHolderRoster {
-
-        View item = null;
-        private TextView itemName = null;
-        private TextView itemDescriptionText = null;
-        private ImageView itemFirstImage = null;
-        private ImageView itemSecondImage = null;
-        private ImageView itemThirdImage;
-        private ImageView itemFourthImage;
-        private ImageView itemFifthImage;
-        private VirtualContactList vcl;
-        ImageList groupIcons = ImageList.createImageList("/gricons.png");
-
-        public ViewHolderRoster(VirtualContactList vcl, View item) {
-            this.vcl = vcl;
-            this.item = item;
+    void populateFromContact(RosterItemView rosterItemView, RosterHelper roster, Protocol p, Contact item) {
+        rosterItemView.itemNameColor = Scheme.getColor(item.getTextTheme());
+        rosterItemView.itemNameFont = item.hasChat() ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT;
+        rosterItemView.itemName = (item.subcontactsS() == 0) ?
+                item.getText() : item.getText() + " (" + item.subcontactsS() + ")";
+        if (General.showStatusLine) {
+            String statusMessage = roster.getStatusMessage(item);
+            rosterItemView.itemDescColor = Scheme.getColor(Scheme.THEME_CONTACT_STATUS);
+            rosterItemView.itemDesc = statusMessage;
         }
 
-        void populateFromGroup(Group g) {
-            boolean isExpanded = g.isExpanded();
-            TextView itemName = getItemName();
-            itemName.setTextSize(General.getFontSize());
-            itemName.setText(g.getText());
-            itemName.setTextColor(Scheme.getColor(Scheme.THEME_GROUP));
-            itemName.setTypeface(Typeface.DEFAULT);
+        Icon icStatus = item.getLeftIcon(p);
+        if (icStatus != null)
+            rosterItemView.itemFirstImage = icStatus.getImage().getBitmap();
+        if (item.isTyping()) {
+            rosterItemView.itemFirstImage = Message.getIcon(Message.ICON_TYPE).getBitmap();
+        } else {
+            BitmapDrawable icMess = Message.getIcon((byte) item.getUnreadMessageIcon());
+            if (icMess != null)
+                rosterItemView.itemFirstImage = icMess.getBitmap();
+        }
 
-            ImageView firstImage = getItemFirstImage();
-            firstImage.setVisibility(ImageView.VISIBLE);
-            firstImage.setImageBitmap((isExpanded) ? groupIcons.iconAt(1).getImage() : groupIcons.iconAt(0).getImage());
+        if (item.getXStatusIndex() != XStatusInfo.XSTATUS_NONE) {
+            XStatusInfo xStatusInfo = p.getXStatusInfo();
+            if (xStatusInfo != null)
+                rosterItemView.itemSecondImage = xStatusInfo.getIcon(item.getXStatusIndex()).getImage().getBitmap();
+        }
 
-            getItemDescriptionText().setVisibility(TextView.GONE);
-            getItemThirdImage().setVisibility(ImageView.GONE);
-            getItemSecondImage().setVisibility(ImageView.GONE);
-            getItemFifthRuleImage().setVisibility(ImageView.GONE);
-
-            Icon messIcon = ChatHistory.instance.getUnreadMessageIcon(g.getContacts());
-            ImageView messImage = getItemFourthRuleImage();
-            if (isExpanded || messIcon == null) {
-                messImage.setVisibility(ImageView.GONE);
+        if (!item.isTemp()) {
+            if (item.isAuth()) {
+                int privacyList = -1;
+                if (item.inIgnoreList()) {
+                    privacyList = 0;
+                } else if (item.inInvisibleList()) {
+                    privacyList = 1;
+                } else if (item.inVisibleList()) {
+                    privacyList = 2;
+                }
+                if (privacyList != -1)
+                    rosterItemView.itemThirdImage = item.serverListsIcons.iconAt(privacyList).getImage().getBitmap();
             } else {
-                messImage.setVisibility(ImageView.VISIBLE);
-                messImage.setImageBitmap(messIcon.getImage());
+                rosterItemView.itemThirdImage = SawimResources.authIcon.getBitmap();
             }
         }
 
-        void populateFromContact(Protocol p, Contact item) {
-            TextView itemName = getItemName();
-            itemName.setTextSize(General.getFontSize());
-            if (item.subcontactsS() == 0)
-                itemName.setText(item.getText());
-            else
-                itemName.setText(item.getText() + " (" + item.subcontactsS() + ")");
-            itemName.setTextColor(Scheme.getColor(item.getTextTheme()));
-            itemName.setTypeface(item.hasChat() ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+        //rosterItemView.itemFourthImage
 
-            TextView itemStausText = getItemDescriptionText();
-            itemStausText.setTextSize(General.getFontSize() - 2);
-            if (Options.getBoolean(Options.OPTION_SHOW_STATUS_LINE)) {
-                itemStausText.setVisibility(TextView.VISIBLE);
-                itemStausText.setText(vcl.getStatusMessage(item));
-                itemStausText.setTextColor(Scheme.getColor(Scheme.THEME_CONTACT_STATUS));
-            } else {
-                itemStausText.setVisibility(TextView.GONE);
-            }
+        String id = item.getUserId();
+        if (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE)
+            rosterItemView.itemFifthImage = ((BitmapDrawable) Tracking.getTrackIcon(id)).getBitmap();
+    }
 
-            ImageView statusImage = getItemFirstImage();
-            Icon icStatus = p.getStatusInfo().getIcon(item.getStatusIndex());
-            if (item instanceof MrimPhoneContact)
-                icStatus = Mrim.getPhoneContactIcon();
-            if (icStatus == null) {
-                statusImage.setVisibility(ImageView.GONE);
-            } else {
-                statusImage.setVisibility(ImageView.VISIBLE);
-                statusImage.setImageBitmap(icStatus.getImage());
-            }
-            if (item.isTyping()) {
-                statusImage.setImageBitmap(Message.msgIcons.iconAt(Message.ICON_TYPE).getImage());
-            } else {
-                Icon icMess = Message.msgIcons.iconAt(item.getUnreadMessageIcon());
-                if (icMess != null)
-                    statusImage.setImageBitmap(icMess.getImage());
-            }
+    void setShowDivider(RosterItemView rosterItemView, boolean value) {
+        rosterItemView.isShowDivider = value;
+    }
 
-            ImageView xStatusImage = getItemSecondImage();
-            if (item.getXStatusIndex() == XStatusInfo.XSTATUS_NONE) {
-                xStatusImage.setVisibility(ImageView.GONE);
-            } else {
-                xStatusImage.setVisibility(ImageView.VISIBLE);
-                xStatusImage.setImageBitmap(p.getXStatusInfo().getIcon(item.getXStatusIndex()).getImage());
-            }
-
-            if (!item.isTemp()) {
-                Icon icAuth = item.authIcon.iconAt(0);
-                ImageView thirdImage = getItemThirdImage();
-                thirdImage.setVisibility(ImageView.VISIBLE);
-                if (item.isAuth()) {
-                    int privacyList = -1;
-                    if (item.inIgnoreList()) {
-                        privacyList = 0;
-                    } else if (item.inInvisibleList()) {
-                        privacyList = 1;
-                    } else if (item.inVisibleList()) {
-                        privacyList = 2;
+    @Override
+    public View getView(int i, View convertView, ViewGroup viewGroup) {
+        if (convertView == null) {
+            convertView = new RosterItemView(context);
+        }
+        RosterHelper roster = RosterHelper.getInstance();
+        Protocol protocol = roster.getCurrentProtocol();
+        TreeNode o = getItem(i);
+        RosterItemView rosterItemView = (RosterItemView) convertView;
+        rosterItemView.setNull();
+        if (o != null)
+            if (type != RosterHelper.ALL_CONTACTS) {
+                if (type != RosterHelper.ACTIVE_CONTACTS)
+                    if (o.isGroup()) {
+                        populateFromGroup(rosterItemView, (Group) o);
+                    } else if (o.isContact()) {
+                        populateFromContact(rosterItemView, roster, protocol, (Contact) o);
                     }
-                    if (privacyList != -1)
-                        thirdImage.setImageBitmap(item.serverListsIcons.iconAt(privacyList).getImage());
-                    else
-                        thirdImage.setVisibility(ImageView.GONE);
-                } else {
-                    thirdImage.setImageBitmap(icAuth.getImage());
+            } else {
+                if (o.isGroup()) {
+                    populateFromGroup(rosterItemView, (Group) o);
+                } else if (o.isContact()) {
+                    populateFromContact(rosterItemView, roster, protocol, (Contact) o);
                 }
             }
-
-            Icon icClient = (null != p.clientInfo) ? p.clientInfo.getIcon(item.clientIndex) : null;
-            ImageView itemClientImage = getItemFourthRuleImage();
-            if (icClient != null && !Options.getBoolean(Options.OPTION_HIDE_ICONS_CLIENTS)) {
-                itemClientImage.setVisibility(ImageView.VISIBLE);
-                itemClientImage.setImageBitmap(icClient.getImage());
-            } else {
-                itemClientImage.setVisibility(ImageView.GONE);
-            }
-
-            ImageView itemFifthRuleImage = getItemFifthRuleImage();
-            String id = item.getUserId();
-            if (Tracking.isTrackingEvent(id, Tracking.GLOBAL) == Tracking.TRUE) {
-                itemFifthRuleImage.setVisibility(ImageView.VISIBLE);
-                itemFifthRuleImage.setImageBitmap(Tracking.getTrackIcon(id).getImage());
-            } else {
-                itemFifthRuleImage.setVisibility(ImageView.GONE);
-            }
-        }
-
-        public TextView getItemName() {
-            if (itemName == null)
-                itemName = (TextView) item.findViewById(R.id.item_name);
-            return itemName;
-        }
-
-        public TextView getItemDescriptionText() {
-            if (itemDescriptionText == null)
-                itemDescriptionText = (TextView) item.findViewById(R.id.item_description);
-            return itemDescriptionText;
-        }
-
-        public ImageView getItemFirstImage() {
-            if (itemFirstImage == null)
-                itemFirstImage = (ImageView) item.findViewById(R.id.first_image);
-            return itemFirstImage;
-        }
-
-        public ImageView getItemSecondImage() {
-            if (itemSecondImage == null)
-                itemSecondImage = (ImageView) item.findViewById(R.id.second_image);
-            return itemSecondImage;
-        }
-
-        public ImageView getItemThirdImage() {
-            if (itemThirdImage == null)
-                itemThirdImage = (ImageView) item.findViewById(R.id.third_image);
-            return itemThirdImage;
-        }
-
-        public ImageView getItemFourthRuleImage() {
-            if (itemFourthImage == null)
-                itemFourthImage = (ImageView) item.findViewById(R.id.fourth_rule_image);
-            return itemFourthImage;
-        }
-
-        public ImageView getItemFifthRuleImage() {
-            if (itemFifthImage == null)
-                itemFifthImage = (ImageView) item.findViewById(R.id.fifth_rule_image);
-            return itemFifthImage;
-        }
+        setShowDivider(rosterItemView, true);
+        rosterItemView.repaint();
+        return convertView;
     }
 }

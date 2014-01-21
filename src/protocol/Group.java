@@ -1,12 +1,14 @@
 package protocol;
 
-import DrawControls.tree.TreeNode;
-import sawim.comm.Sortable;
+import DrawControls.icons.Icon;
+import ru.sawim.SawimResources;
 import sawim.comm.Util;
+import sawim.roster.TreeNode;
+
 import java.util.Vector;
 
 
-public class Group extends TreeNode implements Sortable {
+public class Group extends TreeNode {
 
     private String name;
     private final Vector contacts = new Vector();
@@ -17,15 +19,15 @@ public class Group extends TreeNode implements Sortable {
 
     public static final int NOT_IN_GROUP = -1;
 
-    public static final byte MODE_NONE         = 0x00;
-    public static final byte MODE_REMOVABLE    = 0x01;
-    public static final byte MODE_EDITABLE     = 0x02;
+    public static final byte MODE_NONE = 0x00;
+    public static final byte MODE_REMOVABLE = 0x01;
+    public static final byte MODE_EDITABLE = 0x02;
     public static final byte MODE_NEW_CONTACTS = 0x04;
-    public static final byte MODE_FULL_ACCESS  = 0x0F;
+    public static final byte MODE_FULL_ACCESS = 0x0F;
 
-    public static final byte MODE_TOP          = 0x10;
-    public static final byte MODE_BOTTOM       = 0x20;
-    public static final byte MODE_BOTTOM2      = 0x40;
+    public static final byte MODE_TOP = 0x10;
+    public static final byte MODE_BOTTOM = 0x20;
+    public static final byte MODE_BOTTOM2 = 0x40;
 
     public Group(String name) {
         setName(name);
@@ -39,23 +41,25 @@ public class Group extends TreeNode implements Sortable {
 
     public final void setExpandFlag(boolean value) {
         expanded = value;
-        sort();
+        //sort();
     }
 
     public final String getName() {
         return this.name;
     }
-    
+
     public final void setName(String name) {
         this.name = name;
     }
 
     public final void setMode(int newMode) {
-        mode = (byte)newMode;
+        mode = (byte) newMode;
     }
+
     public final byte getMode() {
         return mode;
     }
+
     public final boolean hasMode(byte type) {
         return (mode & type) != 0;
     }
@@ -82,20 +86,16 @@ public class Group extends TreeNode implements Sortable {
     public final Vector getContacts() {
         return contacts;
     }
-    
+
     public final void updateGroupData() {
         int onlineCount = 0;
-        int total = contacts.size();
-        for (int i = 0; i < total; ++i) {
-            Contact item = (Contact)contacts.elementAt(i);
+        for (int i = 0; i < contacts.size(); ++i) {
+            Contact item = (Contact) contacts.elementAt(i);
             if (item.isOnline()) {
                 onlineCount++;
             }
         }
-        caption = getName();
-        if (0 < total) {
-            caption += " (" + onlineCount + "/" + total + ")";
-        }
+        updateGroupData(contacts.size(), onlineCount);
     }
 
     public final void updateGroupData(int total, int onlineCount) {
@@ -103,7 +103,6 @@ public class Group extends TreeNode implements Sortable {
         if (0 < total) {
             caption += " (" + onlineCount + "/" + total + ")";
         }
-        sort();
     }
 
     public final String getText() {
@@ -111,7 +110,12 @@ public class Group extends TreeNode implements Sortable {
     }
 
     @Override
-    protected int getType() {
+    public Icon getLeftIcon(Protocol p) {
+        return new Icon(expanded ? SawimResources.groupDownIcon : SawimResources.groupRightIcons);
+    }
+
+    @Override
+    protected byte getType() {
         return TreeNode.GROUP;
     }
 

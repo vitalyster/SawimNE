@@ -2,15 +2,17 @@ package ru.sawim.models;
 
 import DrawControls.icons.Icon;
 import android.content.Context;
-import android.graphics.Color;
-
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
+import android.widget.BaseAdapter;
+import android.widget.ImageView;
+import android.widget.TextView;
 import protocol.Protocol;
 import protocol.XStatusInfo;
 import ru.sawim.R;
+import ru.sawim.Scheme;
 
 /**
  * Created with IntelliJ IDEA.
@@ -55,7 +57,7 @@ public class XStatusesAdapter extends BaseAdapter {
         View row = convView;
         if (row == null) {
             LayoutInflater inf = LayoutInflater.from(baseContext);
-            row = inf.inflate(R.layout.xstatus_item, null);
+            row = inf.inflate(R.layout.status_item, null);
             wr = new ItemWrapper(row);
             row.setTag(wr);
         } else {
@@ -63,13 +65,6 @@ public class XStatusesAdapter extends BaseAdapter {
         }
         int item = getItem(position);
         wr.populateFrom(item);
-
-        LinearLayout activeItem = (LinearLayout) row;
-        if (position == selectedItem) {
-            activeItem.setBackgroundColor(Color.BLUE);
-        } else {
-            activeItem.setBackgroundColor(Color.WHITE);
-        }
         return row;
     }
 
@@ -80,33 +75,25 @@ public class XStatusesAdapter extends BaseAdapter {
 
         public ItemWrapper(View item) {
             this.item = item;
+            itemImage = (ImageView) item.findViewById(R.id.status_image);
+            itemXStatus = (TextView) item.findViewById(R.id.status);
         }
 
         void populateFrom(int item) {
-            --item;
-            ImageView imageView = getItemImage();
-            Icon ic = statusInfo.getIcon(item);
-            getItemXStatus().setText(statusInfo.getName(item));
+            Icon ic = statusInfo.getIcon(item - 1);
+            itemXStatus.setTextColor(Scheme.getColor(Scheme.THEME_TEXT));
+            itemXStatus.setText(statusInfo.getName(item - 1));
             if (ic != null) {
-                imageView.setVisibility(ImageView.VISIBLE);
-                imageView.setImageBitmap(ic.getImage());
+                itemImage.setVisibility(ImageView.VISIBLE);
+                itemImage.setImageDrawable(ic.getImage());
             } else {
-                imageView.setVisibility(ImageView.GONE);
+                itemImage.setVisibility(ImageView.GONE);
             }
-        }
-
-        public TextView getItemXStatus() {
-            if (itemXStatus == null) {
-                itemXStatus = (TextView) item.findViewById(R.id.itemXStatus);
+            if (item == selectedItem) {
+                itemXStatus.setTypeface(Typeface.DEFAULT_BOLD);
+            } else {
+                itemXStatus.setTypeface(Typeface.DEFAULT);
             }
-            return itemXStatus;
-        }
-
-        public ImageView getItemImage() {
-            if (itemImage == null) {
-                itemImage = (ImageView) item.findViewById(R.id.second_image);
-            }
-            return itemImage;
         }
     }
 }

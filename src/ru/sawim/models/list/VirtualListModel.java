@@ -1,67 +1,43 @@
 package ru.sawim.models.list;
 
 import DrawControls.icons.Icon;
+import android.graphics.Bitmap;
+import ru.sawim.Scheme;
+import sawim.comm.StringConvertor;
+import sawim.util.JLocale;
+
 import java.util.ArrayList;
 import java.util.List;
-import android.graphics.Bitmap;
-import ru.sawim.models.form.VirtualListItem;
-import sawim.comm.StringConvertor;
-import ru.sawim.Scheme;
-import sawim.util.JLocale;
 
 
 public final class VirtualListModel {
-    public List<VirtualListItem> elements;
+    public List<VirtualListItem> elements = new ArrayList<VirtualListItem>();
     private String header = null;
-    private OnAddListListener addListListener;
 
-    public VirtualListModel() {
-        elements = new ArrayList<VirtualListItem>();
-    }
-
-    public final void addPar(final VirtualListItem item) {
-        if (addListListener == null)
-            elements.add(item);
-        else
-            addListListener.addList(item);
+    public final void addPar(VirtualListItem item) {
+        elements.add(item);
     }
 
     public void clear() {
-        if (addListListener == null)
-            elements.clear();
-        else
-            addListListener.clearList();
+        elements.clear();
         header = null;
     }
 
     public void removeFirstText() {
-        if (addListListener == null)
-            elements.remove(0);
-        else
-            addListListener.removeFirstText();
-    }
-
-    public void setAddListListener(OnAddListListener addListListener) {
-        this.addListListener = addListListener;
-    }
-
-    public interface OnAddListListener {
-        void addList(VirtualListItem item);
-        void clearList();
-        void removeFirstText();
+        elements.remove(0);
     }
 
     public final VirtualListItem createNewParser(boolean itemSelectable) {
         return new VirtualListItem(itemSelectable);
     }
-    
+
     public final void addItem(String text, boolean active) {
-        byte type = active ?  Scheme.FONT_STYLE_BOLD :  Scheme.FONT_STYLE_PLAIN;
+        byte type = active ? Scheme.FONT_STYLE_BOLD : Scheme.FONT_STYLE_PLAIN;
         VirtualListItem item = createNewParser(true);
         item.addDescription(text, Scheme.THEME_TEXT, type);
         addPar(item);
     }
-    
+
     public final void setHeader(String header) {
         this.header = header;
     }
@@ -101,10 +77,11 @@ public final class VirtualListModel {
                 line.addLabel(JLocale.getString(langStr) + ": ",
                         Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
             }
-            line.addIcon(img);
+            line.addImage(img.getImage());
             addPar(line);
         }
     }
+
     public void addAvatar(String langStr, Bitmap img) {
         if (null != img) {
             addHeader();
@@ -113,7 +90,7 @@ public final class VirtualListModel {
                 line.addLabel(JLocale.getString(langStr) + ": ",
                         Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
             }
-            line.addBitmapImage(img);
+            line.addBitmap(img);
             addPar(line);
         }
     }
@@ -123,7 +100,6 @@ public final class VirtualListModel {
     }
 
     public boolean isItemSelectable(int i) {
-        //if (elements.size() < i) return false;
         return elements.get(i).isItemSelectable();
     }
 }

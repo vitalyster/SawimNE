@@ -2,18 +2,18 @@ package ru.sawim.view;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentTransaction;
 import android.view.*;
 import android.widget.AdapterView;
 import android.widget.ListView;
-import ru.sawim.activities.VirtualListActivity;
-import ru.sawim.models.form.VirtualListItem;
-import ru.sawim.Scheme;
-import ru.sawim.models.list.VirtualList;
+import ru.sawim.General;
 import ru.sawim.R;
+import ru.sawim.Scheme;
+import ru.sawim.activities.SawimActivity;
 import ru.sawim.models.VirtualListAdapter;
-import ru.sawim.models.list.VirtualListModel;
+import ru.sawim.models.list.VirtualList;
+import ru.sawim.models.list.VirtualListItem;
+import ru.sawim.widget.MyListView;
 
 /**
  * Created with IntelliJ IDEA.
@@ -22,17 +22,17 @@ import ru.sawim.models.list.VirtualListModel;
  * Time: 13:22
  * To change this template use File | Settings | File Templates.
  */
-public class VirtualListView extends Fragment implements VirtualList.OnVirtualListListener, VirtualListModel.OnAddListListener {
+public class VirtualListView extends SawimFragment implements VirtualList.OnVirtualListListener {
 
+    public static final String TAG = "VirtualListView";
     private VirtualListAdapter adapter;
     private VirtualList list = VirtualList.getInstance();
-    private ListView lv;
+    private MyListView lv;
     private AdapterView.AdapterContextMenuInfo contextMenuInfo;
 
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
-        list.getModel().setAddListListener(this);
         list.setVirtualListListener(this);
     }
 
@@ -40,14 +40,15 @@ public class VirtualListView extends Fragment implements VirtualList.OnVirtualLi
     public void onDetach() {
         super.onDetach();
         list.setVirtualListListener(null);
-        list.getModel().setAddListListener(null);
+        adapter = null;
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.virtual_list, container, false);
-        v.findViewById(R.id.layout).setBackgroundColor(Scheme.getColor(Scheme.THEME_BACKGROUND));
+        if (!Scheme.isSystemBackground())
+            v.setBackgroundColor(Scheme.getColor(Scheme.THEME_BACKGROUND));
         return v;
     }
 
@@ -56,20 +57,27 @@ public class VirtualListView extends Fragment implements VirtualList.OnVirtualLi
         super.onActivityCreated(savedInstanceState);
         Activity currentActivity = getActivity();
         currentActivity.setTitle(list.getCaption());
-        adapter = new VirtualListAdapter(currentActivity, list.getModel().elements);
-        lv = (ListView) currentActivity.findViewById(R.id.list_view);
-        lv.setCacheColorHint(0x00000000);
+        adapter = new VirtualListAdapter(currentActivity);
+        lv = (MyListView) currentActivity.findViewById(R.id.list_view);
         lv.setAdapter(adapter);
-        lv.setBackgroundColor(Scheme.getColor(Scheme.THEME_BACKGROUND));
         lv.setOnItemClickListener(new ListView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+                for (int i = 0; i < list.getModel().elements.size(); ++i) {
+                    VirtualListItem item = adapter.getItem(i);
+                    if (item.getGroupListListener() != null) {
+                        item.getGroupListListener().select();
+                        return;
+                    }
+                }
                 if (list.getClickListListener() != null)
                     list.getClickListListener().itemSelected(position);
             }
         });
         currentActivity.registerForContextMenu(lv);
         lv.setOnCreateContextMenuListener(this);
+        update();
+        getActivity().supportInvalidateOptionsMenu();
     }
 
     @Override
@@ -90,68 +98,53 @@ public class VirtualListView extends Fragment implements VirtualList.OnVirtualLi
         return super.onContextItemSelected(item);
     }
 
-    @Override
-    public void addList(final VirtualListItem item) {
-        VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                list.getModel().elements.add(item);
-                adapter.notifyDataSetChanged();
-            }
-        });
-    }
-
-    @Override
-    public void clearList() {
-        VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                list.getModel().elements.clear();
-                adapter.notifyDataSetChanged();
-            }
-        });
-    }
-
-    @Override
-    public void removeFirstText() {
-        VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (list.getModel().elements.size() > 0)
-                    list.getModel().elements.remove(0);
-                adapter.notifyDataSetChanged();
-            }
-        });
+    public static void show() {
+        SawimActivity.resetBar();
+        if (General.currentActivity.getSupportFragmentManager()
+                .findFragmentById(R.id.chat_fragment) != null)
+            General.currentActivity.setContentView(R.layout.intercalation_layout);
+        VirtualListView newFragment = new VirtualListView();
+        FragmentTransaction transaction = General.currentActivity.getSupportFragmentManager().beginTransaction();
+        transaction.replace(R.id.fragment_container, newFragment, VirtualListView.TAG);
+        transaction.addToBackStack(null);
+        transaction.commit();
     }
 
     @Override
     public void update() {
-        VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
+        General.currentActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                adapter.notifyDataSetChanged();
+                adapter.refreshList(list.getModel().elements);
+                adapter.notifyDataSetInvalidated();
             }
         });
     }
 
     @Override
     public void back() {
-        getActivity().finish();
+        if (General.currentActivity.getSupportFragmentManager()
+                .findFragmentById(R.id.chat_fragment) != null)
+            ((SawimActivity) General.currentActivity).recreateActivity();
+        else
+            General.currentActivity.getSupportFragmentManager().popBackStack();
+        General.currentActivity.supportInvalidateOptionsMenu();
     }
 
-    public boolean onBackPressed() {
+    public boolean hasBack() {
         if (list.getClickListListener() == null) return true;
         return list.getClickListListener().back();
     }
 
-    public void onCreateOptionsMenu(Menu menu) {
+    public void onPrepareOptionsMenu_(Menu menu) {
+        menu.clear();
         if (list.getBuildOptionsMenu() != null)
             list.getBuildOptionsMenu().onCreateOptionsMenu(menu);
     }
 
-    public void onOptionsItemSelected(FragmentActivity activity, MenuItem item) {
+    public void onOptionsItemSelected_(MenuItem item) {
         if (list.getBuildOptionsMenu() != null)
-            list.getBuildOptionsMenu().onOptionsItemSelected(activity, item);
+            list.getBuildOptionsMenu().onOptionsItemSelected(item);
     }
 
     @Override
@@ -160,12 +153,14 @@ public class VirtualListView extends Fragment implements VirtualList.OnVirtualLi
     }
 
     @Override
-    public void setCurrentItemIndex(final int i) {
-        VirtualListActivity.getInstance().runOnUiThread(new Runnable() {
-             @Override
-             public void run() {
-                 lv.setSelection(i);
-             }
-         });
+    public void setCurrentItemIndex(final int i, final boolean isSelected) {
+        General.currentActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (isSelected)
+                    adapter.setSelectedItem(i);
+                lv.setSelection(i);
+            }
+        });
     }
 }

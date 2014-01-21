@@ -1,18 +1,18 @@
 package protocol;
 
 import DrawControls.icons.Icon;
-import android.support.v4.app.FragmentActivity;
-import android.util.Log;
-import sawim.FileTransfer;
+import protocol.xmpp.XmppContact;
 import ru.sawim.General;
-import sawim.SawimException;
+import ru.sawim.R;
+import ru.sawim.SawimApplication;
+import sawim.FileTransfer;
 import sawim.Options;
+import sawim.SawimException;
 import sawim.chat.Chat;
 import sawim.chat.ChatHistory;
 import sawim.chat.message.Message;
 import sawim.chat.message.PlainMessage;
 import sawim.chat.message.SystemNotice;
-import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.io.Storage;
@@ -21,12 +21,10 @@ import sawim.modules.AntiSpam;
 import sawim.modules.DebugLog;
 import sawim.modules.Notify;
 import sawim.modules.tracking.Tracking;
+import sawim.roster.RosterHelper;
 import sawim.search.Search;
 import sawim.search.UserInfo;
 import sawim.util.JLocale;
-import protocol.jabber.JabberContact;
-import ru.sawim.SawimApplication;
-import ru.sawim.R;
 
 import javax.microedition.rms.RecordStore;
 import java.io.*;
@@ -35,9 +33,7 @@ import java.util.Vector;
 abstract public class Protocol {
     private static final int RECONNECT_COUNT = 20;
     private final Object rosterLockObject = new Object();
-    public ClientInfo clientInfo;
-    protected Vector contacts = new Vector();
-    protected Vector groups = new Vector();
+    protected Roster roster = new Roster();
     protected StatusInfo info;
     protected XStatusInfo xstatusInfo;
     private Profile profile;
@@ -51,8 +47,6 @@ abstract public class Protocol {
     private long lastStatusChangeTime;
     private byte progress = 100;
     private Vector autoGrand = new Vector();
-    private Vector sortedContacts = new Vector();
-    private Vector sortedGroups = new Vector();
     private Group notInListGroup;
 
     private String getContactListRS() {
@@ -87,11 +81,11 @@ abstract public class Protocol {
         String rawUin = StringConvertor.notNull(account.userId);
         if (!StringConvertor.isEmpty(rawUin)) {
             byte type = account.protocolType;
-            if ((Profile.PROTOCOL_VK == type)
+    /*        if ((Profile.PROTOCOL_VK == type)
                     && (0 < Util.strToIntDef(rawUin, 0))) {
                 rawUin = "id" + rawUin;
                 account.userId = rawUin;
-            }
+            }*/
             String domain = getDefaultDomain(type);
             if ((null != domain) && (-1 == rawUin.indexOf('@'))) {
                 rawUin += domain;
@@ -102,7 +96,7 @@ abstract public class Protocol {
             setPassword(null);
         }
 
-        String rms = "cl-" + getUserId();
+        String rms = "roster-" + getUserId();
         rmsName = (32 < rms.length()) ? rms.substring(0, 32) : rms;
     }
 
@@ -124,8 +118,8 @@ abstract public class Protocol {
                 return "@livejournal.com";
             case Profile.PROTOCOL_YANDEX:
                 return "@ya.ru";
-            case Profile.PROTOCOL_VK:
-                return "@vk.com";
+            //        case Profile.PROTOCOL_VK:
+            //            return "@vk.com";
             case Profile.PROTOCOL_QIP:
                 return "@qip.ru";
             case Profile.PROTOCOL_ODNOKLASSNIKI:
@@ -163,55 +157,42 @@ abstract public class Protocol {
         return getStatusInfo().getIcon(StatusInfo.STATUS_OFFLINE);
     }
 
-    public final void sort() {
-        synchronized (rosterLockObject) {
-            if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
-                Util.sort(getSortedGroups());
-            } else {
-                Util.sort(getSortedContacts());
-            }
-        }
-    }
-
     public final void setContactListStub() {
         synchronized (rosterLockObject) {
-            contacts = new Vector();
-            groups = new Vector();
+            roster = new Roster();
         }
     }
 
-    public final void setContactList(Vector groups, Vector contacts) {
-        if ((contacts.size() > 0) && !(contacts.elementAt(0) instanceof Contact)) {
-            DebugLog.panic("contacts is not list of Contact");
-            contacts = new Vector();
-        }
-        if ((groups.size() > 0) && !(groups.elementAt(0) instanceof Group)) {
-            DebugLog.panic("groups is not list of Group");
-            groups = new Vector();
-        }
+    public final void setContactList(Vector<Group> groups, Vector<Contact> contacts) {
+        setContactList(new Roster(groups, contacts), false);
+    }
 
+    public final void setContactList(Roster roster, boolean needSave) {
+        Roster oldRoster;
         synchronized (rosterLockObject) {
-            this.contacts = contacts;
-            this.groups = groups;
+            oldRoster = this.roster;
+            if (null != oldRoster) {
+                Util.removeAll(oldRoster.getGroupItems(), roster.getGroupItems());
+                Util.removeAll(oldRoster.getContactItems(), roster.getContactItems());
+            }
+            this.roster = roster;
         }
         ChatHistory.instance.restoreContactsWithChat(this);
         synchronized (rosterLockObject) {
-            sortedContacts = new Vector();
-            for (int i = 0; i < contacts.size(); ++i) {
-                sortedContacts.addElement(contacts.elementAt(i));
+            for (int i = 0; i < roster.getContactItems().size(); ++i) {
+                oldRoster.getContactItems().addElement(roster.getContactItems().elementAt(i));
             }
-            sortedGroups = new Vector();
-            for (int i = 0; i < groups.size(); ++i) {
-                Group g = (Group) groups.elementAt(i);
+            for (int i = 0; i < roster.getGroupItems().size(); ++i) {
+                Group g = roster.getGroupItems().elementAt(i);
                 updateContacts(g);
-                sortedGroups.addElement(g);
+                oldRoster.getGroupItems().addElement(g);
             }
-            Util.sort(sortedGroups);
             updateContacts(notInListGroup);
         }
-        if (getContactList().getManager().getProtocolCount() == 0) return;
-        getContactList().getManager().update();
-        needSave();
+        if (RosterHelper.getInstance().getProtocolCount() == 0) return;
+        RosterHelper.getInstance().updateRoster();
+        if (needSave)
+            needSave();
     }
 
     public final void setContactListAddition(Group group) {
@@ -220,17 +201,17 @@ abstract public class Protocol {
             updateContacts(notInListGroup);
             Vector groupItems = group.getContacts();
             for (int i = 0; i < groupItems.size(); ++i) {
-                if (-1 == Util.getIndex(sortedContacts, groupItems.elementAt(i))) {
-                    sortedContacts.addElement(groupItems.elementAt(i));
+                if (-1 == Util.getIndex(roster.getContactItems(), groupItems.elementAt(i))) {
+                    roster.getContactItems().addElement((Contact) groupItems.elementAt(i));
                 }
             }
         }
-        getContactList().getManager().update();
+        RosterHelper.getInstance().updateRoster();
         needSave();
     }
 
     private void updateContacts(Group group) {
-        getContactList().getManager().updateGroup(this, group);
+        RosterHelper.getInstance().updateGroup(this, group);
     }
 
     public final boolean isConnecting() {
@@ -242,13 +223,14 @@ abstract public class Protocol {
     }
 
     public final void setConnectingProgress(int percent) {
-        this.progress = (byte) ((percent < 0) ? 100 : percent);
+        progress = (byte) ((percent < 0) ? 100 : percent);
         if (100 == percent) {
             reconnect_attempts = RECONNECT_COUNT;
-            getContactList().updateConnectionStatus();
-            getContactList().getManager().updateBarProtocols();
+            RosterHelper.getInstance().updateConnectionStatus();
+            RosterHelper.getInstance().updateBarProtocols();
+            RosterHelper.getInstance().updateRoster();
         }
-        getContactList().getManager().updateProgressBar();
+        RosterHelper.getInstance().updateProgressBar();
     }
 
     public void sendFile(FileTransfer transfer, String filename, String description) {
@@ -304,7 +286,7 @@ abstract public class Protocol {
 
     public final void needSave() {
         needSave = true;
-        ContactList.getInstance().needRosterSave();
+        RosterHelper.getInstance().needRosterSave();
     }
 
     public final boolean safeSave() {
@@ -336,8 +318,7 @@ abstract public class Protocol {
     }
 
     private void load() throws Exception {
-        Vector cItems = new Vector();
-        Vector gItems = new Vector();
+        Roster roster = new Roster();
         RecordStore cl = RecordStore.openRecordStore(getContactListRS(), false);
         try {
             byte[] buf;
@@ -363,10 +344,10 @@ abstract public class Protocol {
                         byte type = dis.readByte();
                         switch (type) {
                             case 0:
-                                cItems.addElement(loadContact(dis));
+                                roster.getContactItems().addElement(loadContact(dis));
                                 break;
                             case 1:
-                                gItems.addElement(loadGroup(dis));
+                                roster.getGroupItems().addElement(loadGroup(dis));
                                 break;
                         }
                     }
@@ -377,7 +358,7 @@ abstract public class Protocol {
         } finally {
             cl.closeRecordStore();
         }
-        setContactList(gItems, cItems);
+        setContactList(roster, false);
     }
 
     private void save(RecordStore cl) throws Exception {
@@ -393,14 +374,14 @@ abstract public class Protocol {
         buf = saveProtocolData();
         cl.addRecord(buf, 0, buf.length);
         baos.reset();
-        int cItemsCount = contacts.size();
-        int totalCount = cItemsCount + groups.size();
+        int cItemsCount = roster.getContactItems().size();
+        int totalCount = cItemsCount + roster.getGroupItems().size();
         for (int i = 0; i < totalCount; ++i) {
             if (i < cItemsCount) {
-                saveContact(dos, (Contact) contacts.elementAt(i));
+                saveContact(dos, roster.getContactItems().elementAt(i));
             } else {
                 dos.writeByte(1);
-                saveGroup(dos, (Group) groups.elementAt(i - cItemsCount));
+                saveGroup(dos, roster.getGroupItems().elementAt(i - cItemsCount));
             }
             if ((baos.size() >= 4000) || (i == totalCount - 1)) {
                 buf = baos.toByteArray();
@@ -452,10 +433,10 @@ abstract public class Protocol {
     }
 
     protected void s_removeContact(Contact contact) {
-    };
+    }
 
     protected void s_removedContact(Contact contact) {
-    };
+    }
 
     public final void removeContact(Contact contact) {
         if (contact.isTemp()) {
@@ -496,7 +477,7 @@ abstract public class Protocol {
     }
 
     protected void s_addContact(Contact contact) {
-    };
+    }
 
     protected void s_addedContact(Contact contact) {
     }
@@ -505,7 +486,6 @@ abstract public class Protocol {
         s_addContact(contact);
         contact.setTempFlag(false);
         cl_addContact(contact);
-        getContactList().getManager().setActiveContact(contact);
         needSave();
         s_addedContact(contact);
     }
@@ -541,7 +521,7 @@ abstract public class Protocol {
 
     abstract public boolean isConnected();
 
-    abstract protected void startConnection();
+    public abstract void startConnection();
 
     abstract protected void closeConnection();
 
@@ -555,10 +535,10 @@ abstract public class Protocol {
             userCloseConnection();
         }
         setStatusesOffline();
-        getContactList().getManager().updateBarProtocols();
-        getContactList().getManager().updateProgressBar();
-        getContactList().getManager().update();
-        getContactList().updateConnectionStatus();
+        RosterHelper.getInstance().updateBarProtocols();
+        RosterHelper.getInstance().updateProgressBar();
+        RosterHelper.getInstance().updateRoster();
+        RosterHelper.getInstance().updateConnectionStatus();
         if (user) {
             DebugLog.println("disconnect " + getUserId());
         }
@@ -591,32 +571,31 @@ abstract public class Protocol {
     }
 
     public final Search getSearchForm() {
-        if (groups.isEmpty()) {
+        if (roster.getGroupItems().isEmpty()) {
             return null;
         }
         return new Search(this);
     }
 
     public final Vector getContactItems() {
-        return contacts;
+        return roster.getContactItems();
     }
 
     public final Vector getGroupItems() {
-        return groups;
+        return roster.getGroupItems();
     }
 
     public final void beginTyping(String uin, boolean type) {
         Contact item = getItemByUIN(uin);
         if (null != item) {
             beginTyping(item, type);
-            getContactList().getManager().update();
+            RosterHelper.getInstance().updateRoster();
+            if (RosterHelper.getInstance().getUpdateChatListener() != null)
+                RosterHelper.getInstance().getUpdateChatListener().updateChat(item);
         }
     }
 
     private void beginTyping(Contact item, boolean type) {
-        if (null == item) {
-            return;
-        }
         if (item.isTyping() != type) {
             item.beginTyping(type);
             Chat chat = ChatHistory.instance.getChat(item);
@@ -632,52 +611,31 @@ abstract public class Protocol {
                 } else if (Tracking.isTracking(id, Tracking.EVENT_TYPING) == Tracking.FALSE) {
                     playNotification(Notify.isSound(Notify.NOTIFY_TYPING), Notify.NOTIFY_TYPING);
                 }
-                playNotification(Notify.NOTIFY_TYPING);
+                //playNotification(Notify.NOTIFY_TYPING);
             }
-        }
-    }
-
-    private void updateChatStatus(Contact c) {
-        Chat chat = ChatHistory.instance.getChat(c);
-        if (null != chat) {
-            chat.updateStatus();
         }
     }
 
     protected final void setStatusesOffline() {
-        for (int i = contacts.size() - 1; i >= 0; --i) {
-            Contact c = (Contact) contacts.elementAt(i);
+        for (int i = roster.getContactItems().size() - 1; i >= 0; --i) {
+            Contact c = roster.getContactItems().elementAt(i);
             c.setOfflineStatus();
         }
         synchronized (rosterLockObject) {
-            if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
-                for (int i = groups.size() - 1; i >= 0; --i) {
-                    ((Group) groups.elementAt(i)).updateGroupData();
+            if (RosterHelper.getInstance().useGroups) {
+                for (int i = roster.getGroupItems().size() - 1; i >= 0; --i) {
+                    (roster.getGroupItems().elementAt(i)).updateGroupData();
                 }
             }
         }
     }
 
-    public final Contact getItemByUIN(String uin) {
-        for (int i = contacts.size() - 1; i >= 0; --i) {
-            Contact contact = (Contact) contacts.elementAt(i);
-            if (contact.getUserId().equals(uin)) {
-                return contact;
-            }
-        }
-        return null;
+    public final Contact getItemByUIN(String uid) {
+        return roster.getItemByUID(uid);
     }
 
     public final Group getGroupById(int id) {
-        synchronized (rosterLockObject) {
-            for (int i = groups.size() - 1; 0 <= i; --i) {
-                Group group = (Group) groups.elementAt(i);
-                if (group.getId() == id) {
-                    return group;
-                }
-            }
-        }
-        return null;
+        return roster.getGroupById(id);
     }
 
     public final Group getGroup(Contact contact) {
@@ -685,23 +643,11 @@ abstract public class Protocol {
     }
 
     public final Group getGroup(String name) {
-        synchronized (rosterLockObject) {
-            for (int i = groups.size() - 1; 0 <= i; --i) {
-                Group group = (Group) groups.elementAt(i);
-                if (group.getName().equals(name)) {
-                    return group;
-                }
-            }
-        }
-        return null;
-    }
-
-    public final ContactList getContactList() {
-        return ContactList.getInstance();
+        return roster.getGroup(name);
     }
 
     public final boolean inContactList(Contact contact) {
-        return -1 != Util.getIndex(contacts, contact);
+        return roster.hasContact(contact);
     }
 
     public final StatusInfo getStatusInfo() {
@@ -711,14 +657,19 @@ abstract public class Protocol {
     protected abstract void s_updateOnlineStatus();
 
     public final void setOnlineStatus(int statusIndex, String msg) {
+        setOnlineStatus(statusIndex, msg, true);
+    }
+
+    public final void setOnlineStatus(int statusIndex, String msg, boolean save) {
         profile.statusIndex = (byte) statusIndex;
         profile.statusMessage = msg;
-        Options.saveAccount(profile);
+        if (save)
+            Options.saveAccount(profile);
 
         setLastStatusChangeTime();
         if (isConnected()) {
             s_updateOnlineStatus();
-            getContactList().getManager().updateProgressBar();
+            RosterHelper.getInstance().updateProgressBar();
         }
     }
 
@@ -756,7 +707,11 @@ abstract public class Protocol {
         if (null == g) {
             g = notInListGroup;
         }
-        getContactList().getManager().removeFromGroup(g, c);
+        for (int i = 0; i < roster.getGroupItems().size(); ++i) {
+            Group group = roster.getGroupItems().elementAt(i);
+            RosterHelper.getInstance().removeFromGroup(group, c);
+        }
+        //RosterHelper.getInstance().removeFromGroup(g, c);
     }
 
     private void ui_addContactToGroup(Contact contact, Group group) {
@@ -765,29 +720,17 @@ abstract public class Protocol {
         if (null == group) {
             group = notInListGroup;
         }
-        getContactList().getManager().addToGroup(group, contact);
+        RosterHelper.getInstance().addToGroup(group, contact);
     }
 
-    private void ui_updateGroup(Group group) {
-        if (Options.getBoolean(Options.OPTION_USER_GROUPS)) {
-            synchronized (rosterLockObject) {
-                group.updateGroupData();
-                Util.sort(sortedGroups);
-            }
-            getContactList().getManager().update(group);
+    private void ui_updateGroup(final Group group) {
+        if (RosterHelper.getInstance().useGroups) {
+            RosterHelper.getInstance().updateRoster(group);
         }
     }
 
     public final Group getNotInListGroup() {
         return notInListGroup;
-    }
-
-    public final Vector getSortedContacts() {
-        return sortedContacts;
-    }
-
-    public final Vector getSortedGroups() {
-        return sortedGroups;
     }
 
     public final Object getRosterLockObject() {
@@ -798,23 +741,24 @@ abstract public class Protocol {
         if (Options.getBoolean(Options.OPTION_SORT_UP_WITH_MSG)) {
             ui_updateContact(contact);
         }
-        getContactList().markMessages(contact);
+        RosterHelper.getInstance().markMessages(contact);
     }
 
     public final void ui_changeContactStatus(Contact contact) {
-        updateChatStatus(contact);
         ui_updateContact(contact);
     }
 
-    public final void ui_updateContact(Contact contact) {
+    public final void ui_updateContact(final Contact contact) {
         synchronized (rosterLockObject) {
             Group group = getGroup(contact);
             if (null == group) {
                 group = notInListGroup;
             }
-            getContactList().getManager().putIntoQueue(group);
+            RosterHelper.getInstance().putIntoQueue(group);
         }
-        getContactList().getManager().update(contact);
+        RosterHelper.getInstance().updateRoster(contact);
+        if (RosterHelper.getInstance().getUpdateChatListener() != null)
+            RosterHelper.getInstance().getUpdateChatListener().updateChat(contact);
     }
 
     private void cl_addContact(Contact contact) {
@@ -824,14 +768,9 @@ abstract public class Protocol {
         Group g = getGroup(contact);
         boolean hasnt = !inContactList(contact);
         if (hasnt) {
-            contacts.addElement(contact);
+            roster.getContactItems().addElement(contact);
         }
-        synchronized (rosterLockObject) {
-            if (hasnt) {
-                sortedContacts.addElement(contact);
-            }
-            ui_addContactToGroup(contact, g);
-        }
+        ui_addContactToGroup(contact, g);
         ui_updateContact(contact);
     }
 
@@ -842,22 +781,12 @@ abstract public class Protocol {
         ui_updateContact(contact);
     }
 
-    private void cl_removeContact(Contact contact) {
-        contacts.removeElement(contact);
-        synchronized (rosterLockObject) {
-            sortedContacts.removeElement(contact);
-            ui_removeFromAnyGroup(contact);
-        }
-        getContactList().getManager().update(contact);
-    }
-
     private void cl_addGroup(Group group) {
-        if (-1 != Util.getIndex(groups, group)) {
+        if (-1 != Util.getIndex(roster.getGroupItems(), group)) {
             DebugLog.panic("Group '" + group.getName() + "' already added");
         }
-        groups.addElement(group);
         synchronized (rosterLockObject) {
-            sortedGroups.addElement(group);
+            roster.getGroupItems().addElement(group);
             ui_updateGroup(group);
         }
     }
@@ -866,12 +795,9 @@ abstract public class Protocol {
         ui_updateGroup(group);
     }
 
-    private void cl_removeGroup(Group group) {
-        groups.removeElement(group);
-        synchronized (rosterLockObject) {
-            sortedGroups.removeElement(group);
-        }
-        getContactList().getManager().update(group);
+    private void cl_removeGroup(final Group group) {
+        roster.getGroupItems().removeElement(group);
+        RosterHelper.getInstance().updateRoster(group);
     }
 
     public final void addLocalContact(Contact contact) {
@@ -884,7 +810,8 @@ abstract public class Protocol {
         }
         boolean inCL = inContactList(contact);
         if (inCL) {
-            cl_removeContact(contact);
+            roster.getContactItems().removeElement(contact);
+            ui_removeFromAnyGroup(contact);
         }
         if (contact.hasChat()) {
             ChatHistory.instance.unregisterChat(ChatHistory.instance.getChat(contact));
@@ -939,7 +866,8 @@ abstract public class Protocol {
             return;
         }
         Chat chat = getChat(contact);
-        chat.addMessage(message, !silent && !message.isWakeUp());
+        boolean isHighlight = Chat.isHighlight(message.getProcessedText(), contact.getMyName());
+        chat.addMessage(message, !silent && !message.isWakeUp(), isHighlight);
         if (message instanceof SystemNotice) {
             SystemNotice notice = (SystemNotice) message;
             if (SystemNotice.SYS_NOTICE_AUTHREQ == notice.getSysnoteType()) {
@@ -951,27 +879,34 @@ abstract public class Protocol {
             }
         }
         if (!silent) {
-            addMessageNotify(chat, contact, message);
+            addMessageNotify(chat, contact, message, isHighlight);
         }
-        getContactList().markMessages(contact);
-        getContactList().getManager().update(contact);
-        getContactList().getManager().updateBarProtocols();
+        if (chat.typeNewMessageIcon != chat.getNewMessageIcon() || chat.isVisibleChat()) {
+            chat.typeNewMessageIcon = chat.getNewMessageIcon();
+            if (contact != RosterHelper.getInstance().getCurrentContact() || !chat.isVisibleChat()) {
+                SawimApplication.getInstance().updateAppIcon();
+            }
+            if (RosterHelper.getInstance().getUpdateChatListener() != null)
+                RosterHelper.getInstance().getUpdateChatListener().updateChat(contact);
+            RosterHelper.getInstance().updateRoster(contact);
+            RosterHelper.getInstance().updateBarProtocols();
+        }
     }
 
-    private void addMessageNotify(Chat chat, Contact contact, Message message) {
+    private void addMessageNotify(Chat chat, Contact contact, Message message, boolean isHighlight) {
         boolean isPersonal = contact.isSingleUserContact();
         boolean isBlog = isBlogBot(contact.getUserId());
-        boolean isHuman = isBlog || chat.isHuman() || !contact.isSingleUserContact();
+        boolean isHuman = isBlog || chat.isHuman() || !isPersonal;
         if (isBot(contact)) {
             isHuman = false;
         }
         boolean isMention = false;
-        if (!isPersonal && !message.isOffline() && (contact instanceof JabberContact)) {
+        if (!isPersonal && !message.isOffline() && (contact instanceof XmppContact)) {
             String msg = message.getText();
             String myName = contact.getMyName();
             isPersonal = msg.startsWith(myName)
                     && msg.startsWith(" ", myName.length() + 1);
-            isMention = Chat.isHighlight(msg, myName);
+            isMention = isHighlight;
         }
         if (Options.getBoolean(Options.OPTION_ANSWERER)) {
             Answerer.getInstance().checkMessage(this, contact, message);
@@ -979,8 +914,7 @@ abstract public class Protocol {
         String id = contact.getUserId();
         if (message.isOffline()) {
         } else if (isPersonal) {
-            if (contact.isSingleUserContact()
-                    && contact.isAuth() && !contact.isTemp()
+            if (contact.isAuth() && !contact.isTemp()
                     && message.isWakeUp()) {
                 playNotification(Notify.NOTIFY_ALARM);
 
@@ -1010,7 +944,6 @@ abstract public class Protocol {
         if (!isPersonal) {
             return;
         }
-        getContactList().getManager().setActiveContact(contact);
     }
 
     protected boolean isBlogBot(String userId) {
@@ -1037,6 +970,7 @@ abstract public class Protocol {
     }
 
     public final void connect() {
+        DebugLog.println("connect");
         isReconnect = false;
         reconnect_attempts = RECONNECT_COUNT;
         disconnect(false);
@@ -1057,9 +991,10 @@ abstract public class Protocol {
     }
 
     public final void processException(SawimException e) {
-        DebugLog.println("process exception: " + e.getMessage());
-        getContactList().activateWithMsg(getUserId() + "\n" + e.getMessage());
-        if (!SawimApplication.getInstance().isNetworkAvailable()) {
+        DebugLog.println("process exception: " + e.getMessage() + " boolean " +
+                Options.getBoolean(Options.OPTION_INSTANT_RECONNECTION));
+        RosterHelper.getInstance().activateWithMsg(getUserId() + "\n" + e.getMessage());
+        if (!SawimApplication.getInstance().isNetworkAvailable() && Options.getBoolean(Options.OPTION_INSTANT_RECONNECTION)) {
             e = new SawimException(123, 0);
         }
         if (e.isReconnectable()) {
@@ -1088,7 +1023,7 @@ abstract public class Protocol {
     }
 
     public final void showException(SawimException e) {
-        getContactList().activateWithMsg(getUserId() + "\n" + e.getMessage());
+        RosterHelper.getInstance().activateWithMsg(getUserId() + "\n" + e.getMessage());
     }
 
     public final void dismiss() {
@@ -1096,11 +1031,9 @@ abstract public class Protocol {
         userCloseConnection();
         ChatHistory.instance.unregisterChats(this);
         safeSave();
-        sortedContacts = null;
-        sortedGroups = null;
         profile = null;
-        contacts = null;
-        groups = null;
+        roster.setNull();
+        roster = null;
     }
 
     public void autoDenyAuth(String uin) {
@@ -1131,12 +1064,12 @@ abstract public class Protocol {
         }
         PlainMessage plainMsg = new PlainMessage(this, to, General.getCurrentGmtTime(), msg);
         if (isConnected()) {
-            if (msg.startsWith("/") && !msg.startsWith("/me ") && !msg.startsWith("/wakeup") && (to instanceof JabberContact)) {
-                boolean cmdExecuted = ((JabberContact) to).execCommand(this, msg);
+            if (msg.startsWith("/") && !msg.startsWith("/me ") && !msg.startsWith("/wakeup") && (to instanceof XmppContact)) {
+                boolean cmdExecuted = ((XmppContact) to).execCommand(this, msg);
                 if (!cmdExecuted) {
                     String text = JLocale.getString("jabber_command_not_found");
                     SystemNotice notice = new SystemNotice(this, SystemNotice.SYS_NOTICE_MESSAGE, to.getUserId(), text);
-                    getChat(to).addMessage(notice, false);
+                    getChat(to).addMessage(notice, false, false);
                 }
                 return;
             }
@@ -1147,10 +1080,10 @@ abstract public class Protocol {
         }
     }
 
-    protected void doAction(FragmentActivity a, Contact contact, int cmd) {
+    protected void doAction(Contact contact, int cmd) {
     }
 
-    public void showUserInfo(FragmentActivity a, Contact contact) {
+    public void showUserInfo(Contact contact) {
     }
 
     public void showStatus(Contact contact) {

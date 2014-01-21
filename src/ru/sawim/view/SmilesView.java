@@ -1,6 +1,5 @@
 package ru.sawim.view;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 import android.view.LayoutInflater;
@@ -9,10 +8,9 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.GridView;
-import ru.sawim.General;
-import sawim.modules.Emotions;
-import ru.sawim.R;
 import ru.sawim.models.SmilesAdapter;
+import sawim.modules.Emotions;
+import sawim.roster.RosterHelper;
 
 /**
  * Created with IntelliJ IDEA.
@@ -28,6 +26,7 @@ public class SmilesView extends DialogFragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         getDialog().requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getDialog().setCanceledOnTouchOutside(true);
         smilesAdapter = new SmilesAdapter(getActivity());
         GridView gv = new GridView(getActivity());
         gv.setNumColumns(5);
@@ -35,8 +34,8 @@ public class SmilesView extends DialogFragment {
         gv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                if (General.getInstance().getUpdateChatListener() != null)
-                    General.getInstance().getUpdateChatListener().pastText(Emotions.instance.getSmileCode(i));
+                if (RosterHelper.getInstance().getUpdateChatListener() != null)
+                    RosterHelper.getInstance().getUpdateChatListener().pastText(Emotions.instance.getSmileCode(i));
                 dismiss();
             }
         });

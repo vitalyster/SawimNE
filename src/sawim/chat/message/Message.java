@@ -1,28 +1,24 @@
 package sawim.chat.message;
 
-import DrawControls.icons.ImageList;
-import ru.sawim.General;
-import sawim.chat.MessData;
+import android.graphics.drawable.BitmapDrawable;
 import protocol.Contact;
 import protocol.Protocol;
+import ru.sawim.SawimResources;
+import sawim.chat.MessData;
+import sawim.roster.RosterHelper;
 
 public abstract class Message {
-    public static final ImageList msgIcons = ImageList.createImageList("/msgs.png");
-    public static final int ICON_NONE = -1;
-    public static final int ICON_SYSREQ = 0;
-    public static final int ICON_SYS_OK = 1;
-    public static final int ICON_TYPE = 2;
-    public static final int ICON_IN_MSG_HI = 3;
-    public static final int ICON_IN_MSG = 4;
-    public static final int ICON_OUT_MSG = 5;
-    public static final int ICON_OUT_MSG_FROM_SERVER = 6;
-    public static final int ICON_OUT_MSG_FROM_CLIENT = 7;
-	public static final int ICON_MSG_TRACK = 8;
+    public static final byte ICON_NONE = -1;
+    public static final byte ICON_SYSREQ = 0;
+    public static final byte ICON_SYS_OK = 1;
+    public static final byte ICON_TYPE = 2;
+    public static final byte ICON_IN_MSG_HI = 3;
+    public static final byte ICON_IN_MSG = 4;
+    public static final byte ICON_OUT_MSG_FROM_SERVER = 6;
+    public static final byte ICON_OUT_MSG_FROM_CLIENT = 7;
 
-    public static final int NOTIFY_OFF = -1;
-    public static final int NOTIFY_NONE = ICON_OUT_MSG;
-    public static final int NOTIFY_FROM_SERVER = ICON_OUT_MSG_FROM_SERVER;
-    public static final int NOTIFY_FROM_CLIENT = ICON_OUT_MSG_FROM_CLIENT;
+    public static final byte NOTIFY_FROM_SERVER = ICON_OUT_MSG_FROM_SERVER;
+    public static final byte NOTIFY_FROM_CLIENT = ICON_OUT_MSG_FROM_CLIENT;
 
     protected boolean isIncoming;
     protected String contactId;
@@ -32,46 +28,64 @@ public abstract class Message {
     private MessData mData = null;
     private long newDate;
 
+    public static BitmapDrawable getIcon(byte type) {
+        switch (type) {
+            case ICON_SYSREQ:
+                return SawimResources.authReqIcon;
+            case ICON_SYS_OK:
+                return SawimResources.authGrantIcon;
+            case ICON_TYPE:
+                return SawimResources.typingIcon;
+            case ICON_IN_MSG_HI:
+                return SawimResources.personalMessageIcon;
+            case ICON_IN_MSG:
+                return SawimResources.messageIcon;
+        }
+        return null;
+    }
+
     protected Message(long date, Protocol protocol, String contactId, boolean isIncoming) {
-    	this.newDate = date;
-    	this.protocol = protocol;
-    	this.contactId = contactId;
+        this.newDate = date;
+        this.protocol = protocol;
+        this.contactId = contactId;
         this.isIncoming = isIncoming;
     }
+
     protected Message(long date, Protocol protocol, Contact contact, boolean isIncoming) {
-    	this.newDate = date;
-    	this.protocol = protocol;
-    	this.contact = contact;
+        this.newDate = date;
+        this.protocol = protocol;
+        this.contact = contact;
         this.isIncoming = isIncoming;
     }
 
     public final void setVisibleIcon(MessData mData) {
         this.mData = mData;
     }
-    public final void setSendingState(int state) {
-        if (!mData.isMe()) {
-            mData.iconIndex = state;
+
+    public final void setSendingState(byte state) {
+        if (mData != null && !mData.isMe()) {
+            mData.setIconIndex(state);
         }
-        if (getRcvr().hasChat()) {
-            if (General.getInstance().getUpdateChatListener() != null)
-                General.getInstance().getUpdateChatListener().updateChat();
-        }
+        if (RosterHelper.getInstance().getUpdateChatListener() != null)
+            RosterHelper.getInstance().getUpdateChatListener().updateChat(contact);
     }
 
     public final void setName(String name) {
         senderName = name;
     }
-    private String getContactUin() {
+
+    public String getContactUin() {
         return (null == contact) ? contactId : contact.getUserId();
     }
-    
+
     public final String getSndrUin() {
         return isIncoming ? getContactUin() : protocol.getUserId();
     }
-    
+
     public final String getRcvrUin() {
         return isIncoming ? protocol.getUserId() : getContactUin();
     }
+
     public boolean isIncoming() {
         return isIncoming;
     }
@@ -81,11 +95,11 @@ public abstract class Message {
     }
 
     public boolean isOffline() {
-    	return false;
+        return false;
     }
 
     public final long getNewDate() {
-    	return newDate;
+        return newDate;
     }
 
     public String getName() {

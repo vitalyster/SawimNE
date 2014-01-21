@@ -1,21 +1,21 @@
 package protocol.mrim;
 
-import android.support.v4.app.FragmentActivity;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import protocol.Contact;
-import ru.sawim.activities.VirtualListActivity;
+import ru.sawim.General;
+import ru.sawim.Scheme;
+import ru.sawim.models.list.VirtualList;
+import ru.sawim.models.list.VirtualListItem;
+import ru.sawim.models.list.VirtualListModel;
 import ru.sawim.view.TextBoxView;
 import sawim.Clipboard;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
-import ru.sawim.models.list.VirtualListModel;
-import ru.sawim.models.list.VirtualList;
-import ru.sawim.Scheme;
-import java.util.Vector;
-import ru.sawim.models.form.VirtualListItem;
 import sawim.util.JLocale;
+
+import java.util.Vector;
 
 public final class MicroBlog implements TextBoxView.TextBoxListener {
     private VirtualListModel model = new VirtualListModel();
@@ -24,10 +24,10 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
     private Mrim mrim;
     private VirtualList list;
 
-    private static final int MENU_WRITE     = 0;
-    private static final int MENU_REPLY     = 1;
-    private static final int MENU_COPY      = 2;
-    private static final int MENU_CLEAN     = 3;
+    private static final int MENU_WRITE = 0;
+    private static final int MENU_REPLY = 1;
+    private static final int MENU_COPY = 2;
+    private static final int MENU_CLEAN = 3;
     private static final int MENU_USER_MENU = 4;
 
     public MicroBlog(Mrim mrim) {
@@ -63,7 +63,7 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
             }
 
             @Override
-            public void onOptionsItemSelected(FragmentActivity activity, MenuItem item) {
+            public void onOptionsItemSelected(MenuItem item) {
                 switch (item.getItemId()) {
                     case MENU_WRITE:
                         write("");
@@ -95,13 +95,13 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
                         String to = "";
                         int cur = listItem;
                         if (cur < ids.size()) {
-                            to = (String)ids.elementAt(cur);
+                            to = (String) ids.elementAt(cur);
                         }
                         write(to);
                         break;
 
                     case MENU_COPY:
-                        Clipboard.setClipBoardText(model.elements.get(listItem).getLabel() + "\n" + model.elements.get(listItem).getDescSpan().toString());
+                        Clipboard.setClipBoardText(model.elements.get(listItem).getLabel() + "\n" + model.elements.get(listItem).getDescStr());
                         break;
 
                     /*case MENU_USER_MENU:
@@ -128,7 +128,7 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
     }
 
     public boolean addPost(String from, String nick, String post, String postid,
-            boolean reply, long gmtTime) {
+                           boolean reply, long gmtTime) {
         if (StringConvertor.isEmpty(post) || ids.contains(postid)) {
             return false;
         }
@@ -150,9 +150,11 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
             label = " (reply)";
         }
         par.addLabel(label + " " + date + ":", Scheme.THEME_MAGIC_EYE_NUMBER, Scheme.FONT_STYLE_PLAIN);
-        par.addTextWithSmiles(post, Scheme.THEME_MAGIC_EYE_TEXT, Scheme.FONT_STYLE_PLAIN);
+        par.addDescription(post, Scheme.THEME_MAGIC_EYE_TEXT, Scheme.FONT_STYLE_PLAIN);
 
         model.addPar(par);
+        if (list != null)
+            list.updateModel();
         //removeOldRecords();
         return true;
     }
@@ -164,7 +166,7 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
         replayTo = StringConvertor.notNull(to);
         postEditor = new TextBoxView();
         postEditor.setTextBoxListener(this);
-        postEditor.show(VirtualListActivity.getInstance().getSupportFragmentManager(), StringConvertor.isEmpty(replayTo) ? "message" : "reply");
+        postEditor.show(General.currentActivity.getSupportFragmentManager(), StringConvertor.isEmpty(replayTo) ? "message" : "reply");
     }
 
     public void textboxAction(TextBoxView box, boolean ok) {

@@ -13,13 +13,9 @@ import org.microemu.cldc.file.FileSystem;
 import org.microemu.util.AndroidRecordStoreManager;
 import ru.sawim.service.SawimService;
 import ru.sawim.service.SawimServiceConnection;
+import ru.sawim.text.TextFormatter;
 import sawim.chat.ChatHistory;
-import sawim.cl.ContactList;
-import sawim.modules.DebugLog;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
+import sawim.roster.RosterHelper;
 
 /**
  * Created with IntelliJ IDEA.
@@ -32,11 +28,8 @@ public class SawimApplication extends Application {
 
     public static SawimApplication instance;
     private final SawimServiceConnection serviceConnection = new SawimServiceConnection();
-    public boolean useAbsence = false;
     public Common common;
     private NetworkStateReceiver networkStateReceiver = new NetworkStateReceiver();
-
-    private final ExecutorService backgroundExecutor;
 
     public static SawimApplication getInstance() {
         return instance;
@@ -47,61 +40,33 @@ public class SawimApplication extends Application {
     }
 
     public SawimApplication() {
-        backgroundExecutor = Executors
-                .newSingleThreadExecutor(new ThreadFactory() {
-                    @Override
-                    public Thread newThread(Runnable runnable) {
-                        Thread thread = new Thread(runnable,
-                                "Background executor service");
-                        thread.setPriority(Thread.MIN_PRIORITY);
-                        thread.setDaemon(true);
-                        return thread;
-                    }
-                });
     }
 
     @Override
     public void onCreate() {
         instance = this;
-        new General().init();
         Thread.setDefaultUncaughtExceptionHandler(ExceptionHandler.inContext(getApplicationContext()));
-        //StrictMode.enableDefaults();
         super.onCreate();
-        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
         MIDletInit();
         new General().startApp();
-        ChatHistory.instance.loadUnreadMessages();
+        TextFormatter.init();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ChatHistory.instance.loadUnreadMessages();
+            }
+        }).start();
+        if (RosterHelper.getInstance() != null) {
+            RosterHelper.getInstance().autoConnect();
+            Thread.yield();
+        }
         updateAppIcon();
-        runInBackground(new Runnable() {
-            @Override
-            public void run() {
-                if (ContactList.getInstance().getManager() != null)
-                    ContactList.getInstance().autoConnect();
-            }
-        });
-    }
-
-    public void runInBackground(final Runnable runnable) {
-        backgroundExecutor.submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    runnable.run();
-                } catch (Exception e) {
-                    DebugLog.panic("runInBackground", e);
-                    ExceptionHandler.reportOnlyHandler(SawimApplication.this);
-                }
-            }
-        });
     }
 
     private void MIDletInit() {
         common = new Common();
         MIDletBridge.setMicroEmulator(common);
         common.setRecordStoreManager(new AndroidRecordStoreManager(getApplicationContext()));
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
-            System.setProperty("video.snapshot.encodings", "yes");
-        }
         FileSystem fs = new FileSystem();
         fs.registerImplementation();
         startService();
@@ -122,12 +87,12 @@ public class SawimApplication extends Application {
         ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).cancelAll();
     }
 
-    public boolean isNetworkAvailable() {
-        return networkStateReceiver.isNetworkAvailable();
-    }
-
     public void updateAppIcon() {
         serviceConnection.send(Message.obtain(null, SawimService.UPDATE_APP_ICON));
+    }
+
+    public boolean isNetworkAvailable() {
+        return networkStateReceiver.isNetworkAvailable();
     }
 
     public String getVersion() {

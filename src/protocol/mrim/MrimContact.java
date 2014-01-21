@@ -2,15 +2,13 @@ package protocol.mrim;
 
 import android.view.ContextMenu;
 import android.view.Menu;
-import android.view.SubMenu;
+import protocol.*;
+import ru.sawim.R;
+import ru.sawim.SawimApplication;
+import ru.sawim.view.menu.MyMenu;
 import sawim.Options;
 import sawim.comm.StringConvertor;
 import sawim.modules.DebugLog;
-import protocol.Contact;
-import protocol.Group;
-import protocol.Protocol;
-import protocol.XStatusInfo;
-import ru.sawim.R;
 
 public class MrimContact extends Contact {
     private int contactId;
@@ -21,8 +19,8 @@ public class MrimContact extends Contact {
     public static final int USER_MENU_SEND_SMS = 1;
 
     public static final int CONTACT_FLAG_INVISIBLE = 0x04;
-    public static final int CONTACT_FLAG_VISIBLE   = 0x08;
-    public static final int CONTACT_FLAG_IGNORE    = 0x10;
+    public static final int CONTACT_FLAG_VISIBLE = 0x08;
+    public static final int CONTACT_FLAG_IGNORE = 0x10;
 
     public void init(int contactId, String name, String phone, int groupId, int serverFlags, int flags) {
         setContactId(contactId);
@@ -34,13 +32,14 @@ public class MrimContact extends Contact {
         setTempFlag(false);
         setOfflineStatus();
     }
+
     final void setFlags(int flags) {
         this.flags = flags;
         setBooleanValue(SL_VISIBLE, (flags & CONTACT_FLAG_VISIBLE) != 0);
         setBooleanValue(SL_INVISIBLE, (flags & CONTACT_FLAG_INVISIBLE) != 0);
         setBooleanValue(SL_IGNORE, (flags & CONTACT_FLAG_IGNORE) != 0);
     }
-    
+
     public MrimContact(String uin, String name) {
         this.userId = uin;
         contactId = -1;
@@ -49,9 +48,11 @@ public class MrimContact extends Contact {
         this.setName(name);
         setOfflineStatus();
     }
+
     void setContactId(int id) {
         contactId = id;
     }
+
     int getContactId() {
         return contactId;
     }
@@ -62,14 +63,15 @@ public class MrimContact extends Contact {
 
     public void setClient(String cl) {
         DebugLog.println("client " + userId + " " + cl);
-        MrimClient.createClient(this, cl);
+        super.setClient(cl);
     }
 
     public void addChatMenuItems(ContextMenu model) {
         if (isOnline() && Options.getBoolean(Options.OPTION_ALARM)) {
-            model.add(Menu.FIRST, USER_MENU_WAKE, 2, R.string.wake);
+            model.add(Menu.FIRST, ContactMenu.USER_MENU_WAKE, 2, R.string.wake);
         }
     }
+
     protected void initContextMenu(Protocol protocol, ContextMenu contactMenu) {
         addChatItems(contactMenu);
         if (!StringConvertor.isEmpty(phones)) {
@@ -77,23 +79,24 @@ public class MrimContact extends Contact {
         }
         addGeneralItems(protocol, contactMenu);
     }
-    protected void initManageContactMenu(Protocol protocol, SubMenu menu) {
+
+    protected void initManageContactMenu(Protocol protocol, MyMenu menu) {
         if (protocol.isConnected()) {
             initPrivacyMenu(menu);
             if (isTemp()) {
-                menu.add(Menu.FIRST, USER_MENU_ADD_USER, 2, R.string.add_user);
+                menu.add(SawimApplication.getContext().getString(R.string.add_user), ContactMenu.USER_MENU_ADD_USER);
             } else {
                 if (protocol.getGroupItems().size() > 1) {
-                    menu.add(Menu.FIRST, USER_MENU_MOVE, 2, R.string.move_to_group);
+                    menu.add(SawimApplication.getContext().getString(R.string.move_to_group), ContactMenu.USER_MENU_MOVE);
                 }
                 if (!isAuth()) {
-                    menu.add(Menu.FIRST, USER_MENU_REQU_AUTH, 2, R.string.requauth);
+                    menu.add(SawimApplication.getContext().getString(R.string.requauth), ContactMenu.USER_MENU_REQU_AUTH);
                 }
-                menu.add(Menu.FIRST, USER_MENU_RENAME, 2, R.string.rename);
+                menu.add(SawimApplication.getContext().getString(R.string.rename), ContactMenu.USER_MENU_RENAME);
             }
         }
         if ((protocol.isConnected() || isTemp()) && protocol.inContactList(this)) {
-            menu.add(Menu.FIRST, USER_MENU_USER_REMOVE, 2, R.string.remove);
+            menu.add(SawimApplication.getContext().getString(R.string.remove), ContactMenu.USER_MENU_USER_REMOVE);
         }
     }
 
@@ -113,6 +116,7 @@ public class MrimContact extends Contact {
     String getPhones() {
         return phones;
     }
+
     void setPhones(String listOfPhones) {
         phones = listOfPhones;
     }

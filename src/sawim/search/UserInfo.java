@@ -1,56 +1,71 @@
 package sawim.search;
 
-import android.graphics.Bitmap;
-import android.support.v4.app.FragmentActivity;
+import DrawControls.icons.Icon;
+import android.os.Environment;
+import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
-import ru.sawim.activities.SawimActivity;
-import sawim.ExternalApi;
-import ru.sawim.models.list.VirtualListModel;
+import android.widget.Toast;
+import protocol.Contact;
+import protocol.Protocol;
+import protocol.StatusInfo;
+import protocol.icq.Icq;
+import protocol.mrim.Mrim;
+import protocol.net.TcpSocket;
+import protocol.xmpp.Xmpp;
+import ru.sawim.General;
+import ru.sawim.R;
+import ru.sawim.SawimApplication;
 import ru.sawim.models.list.VirtualList;
-import DrawControls.icons.*;
+import ru.sawim.models.list.VirtualListItem;
+import ru.sawim.models.list.VirtualListModel;
+import sawim.Clipboard;
+import sawim.ExternalApi;
 import sawim.SawimException;
 import sawim.comm.Util;
-import sawim.forms.*;
-
-import sawim.modules.fs.*;
-import sawim.modules.photo.*;
-
+import sawim.forms.EditInfo;
+import sawim.modules.DebugLog;
+import sawim.modules.fs.FileBrowser;
+import sawim.modules.fs.FileBrowserListener;
+import sawim.modules.fs.FileSystem;
+import sawim.modules.fs.JSR75FileSystem;
+import sawim.modules.photo.PhotoListener;
 import sawim.util.JLocale;
-import protocol.net.TcpSocket;
-import protocol.*;
-import protocol.icq.*;
-import protocol.jabber.*;
-import protocol.mrim.*;
-import ru.sawim.General;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.List;
 
 public class UserInfo implements PhotoListener, FileBrowserListener {
     private final Protocol protocol;
     private VirtualList profileView;
     private boolean avatarIsLoaded = false;
     private boolean searchResult = false;
-    public Bitmap avatar;
+    public byte[] avatar;
     public String status;
-    public protocol.jabber.XmlNode vCard;
+    public protocol.xmpp.XmlNode vCard;
     public final String realUin;
 
-    public String localName, uin, nick, email, homeCity, firstName, lastName,homeState, homePhones, homeFax, homeAddress, cellPhone, homePage,
-            interests, about, workCity, workState, workPhone, workFax, workAddress, workCompany, workDepartment,workPosition, birthDay;
+    public String localName, uin, nick, email, homeCity, firstName, lastName, homeState, homePhones, homeFax, homeAddress, cellPhone, homePage,
+            interests, about, workCity, workState, workPhone, workFax, workAddress, workCompany, workDepartment, workPosition, birthDay;
     public int age;
     public byte gender;
-    public boolean auth; 
+    public boolean auth;
 
     public UserInfo(Protocol prot, String uin) {
         protocol = prot;
         realUin = uin;
     }
+
     public UserInfo(Protocol prot) {
         protocol = prot;
         realUin = null;
     }
+
     public void setProfileView(VirtualList view) {
         profileView = view;
     }
+
     public void createProfileView(String name) {
         localName = name;
         VirtualList textList = VirtualList.getInstance();
@@ -68,21 +83,27 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
 
             @Override
             public boolean back() {
-                profileView.clearAll();
+                profileView.updateModel();
                 return true;
             }
         });
     }
+
     public void showProfile() {
         profileView.show();
     }
+
     void setSeachResultFlag() {
         searchResult = true;
     }
-    private static final int INFO_MENU_EDIT     = 1044;
-    private static final int INFO_MENU_REMOVE_AVATAR = 1045;
-    private static final int INFO_MENU_ADD_AVATAR    = 1046;
-    private static final int INFO_MENU_TAKE_AVATAR   = 1047;
+
+    private static final int INFO_MENU_SAVE_AVATAR = 1;
+    private static final int INFO_MENU_COPY = 2;
+    private static final int INFO_MENU_COPY_ALL = 3;
+    private static final int INFO_MENU_EDIT = 4;
+    private static final int INFO_MENU_REMOVE_AVATAR = 5;
+    private static final int INFO_MENU_ADD_AVATAR = 6;
+    private static final int INFO_MENU_TAKE_AVATAR = 7;
 
     public void setOptimalName() {
         Contact contact = protocol.getItemByUIN(uin);
@@ -96,6 +117,7 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
             }
         }
     }
+
     public synchronized void updateProfileView() {
         if (null == profileView) {
             return;
@@ -112,58 +134,62 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
             }
         }
         profileView.setModel(profile);
+        profileView.updateModel();
     }
+
     private void updateProfileView(VirtualListModel profile) {
         profile.clear();
 
         profile.setHeader("main_info");
         profile.addParam(protocol.getUserIdName(), uin);
-        
+
         profile.addParamImage("user_statuses", getStatusAsIcon());
-        
-        profile.addParam("nick",   nick);
+
+        profile.addParam("nick", nick);
         profile.addParam("name", getName());
         profile.addParam("gender", getGenderAsString());
         if (0 < age) {
             profile.addParam("age", Integer.toString(age));
         }
-        profile.addParam("email",  email);
+        profile.addParam("email", email);
         if (auth) {
             profile.addParam("auth", JLocale.getString("yes"));
         }
-        profile.addParam("birth_day",  birthDay);
+        profile.addParam("birth_day", birthDay);
         profile.addParam("cell_phone", cellPhone);
-        profile.addParam("home_page",  homePage);
-        profile.addParam("interests",  interests);
-        profile.addParam("notes",      about);
+        profile.addParam("home_page", homePage);
+        profile.addParam("interests", interests);
+        profile.addParam("notes", about);
 
         profile.setHeader("home_info");
-        profile.addParam("addr",  homeAddress);
-        profile.addParam("city",  homeCity);
+        profile.addParam("addr", homeAddress);
+        profile.addParam("city", homeCity);
         profile.addParam("state", homeState);
         profile.addParam("phone", homePhones);
-        profile.addParam("fax",   homeFax);
+        profile.addParam("fax", homeFax);
 
         profile.setHeader("work_info");
-        profile.addParam("title",    workCompany);
-        profile.addParam("depart",   workDepartment);
+        profile.addParam("title", workCompany);
+        profile.addParam("depart", workDepartment);
         profile.addParam("position", workPosition);
-        profile.addParam("addr",     workAddress);
-        profile.addParam("city",     workCity);
-        profile.addParam("state",    workState);
-        profile.addParam("phone",    workPhone);
-        profile.addParam("fax",      workFax);
+        profile.addParam("addr", workAddress);
+        profile.addParam("city", workCity);
+        profile.addParam("state", workState);
+        profile.addParam("phone", workPhone);
+        profile.addParam("fax", workFax);
 
         profile.setHeader("avatar");
-        profile.addAvatar(null, avatar);
+        profile.addAvatar(null, ru.sawim.widget.Util.avatarBitmap(avatar));
     }
+
     private void addMenu() {
+        addContextMenu();
         profileView.setBuildOptionsMenu(new VirtualList.OnBuildOptionsMenu() {
             @Override
             public void onCreateOptionsMenu(Menu menu) {
                 if (isEditable()) {
                     menu.add(Menu.FIRST, INFO_MENU_EDIT, 2, JLocale.getString("edit"));
-                    if (protocol instanceof Jabber) {
+                    if (protocol instanceof Xmpp) {
                         menu.add(Menu.FIRST, INFO_MENU_TAKE_AVATAR, 2, JLocale.getString("take_photo"));
                         if (sawim.modules.fs.FileSystem.isSupported()) {
                             menu.add(Menu.FIRST, INFO_MENU_ADD_AVATAR, 2, JLocale.getString("add_from_fs"));
@@ -174,14 +200,14 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
             }
 
             @Override
-            public void onOptionsItemSelected(FragmentActivity activity, MenuItem item) {
+            public void onOptionsItemSelected(MenuItem item) {
                 switch (item.getItemId()) {
                     case INFO_MENU_EDIT:
                         new EditInfo(protocol, UserInfo.this).init().show();
                         break;
 
                     case INFO_MENU_TAKE_AVATAR:
-                        ExternalApi.instance.setActivity(SawimActivity.getInstance());
+                        ExternalApi.instance.setActivity(General.currentActivity);
                         ExternalApi.instance.startCamera(UserInfo.this, 640, 480);
                         break;
 
@@ -200,18 +226,76 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
             }
         });
     }
+
+    private void addContextMenu() {
+        profileView.setOnBuildContextMenu(new VirtualList.OnBuildContextMenu() {
+            @Override
+            public void onCreateContextMenu(ContextMenu menu, int listItem) {
+                menu.add(Menu.FIRST, INFO_MENU_COPY, 2, JLocale.getString("copy_text"));
+                menu.add(Menu.FIRST, INFO_MENU_COPY_ALL, 2, JLocale.getString("copy_all_text"));
+                if (avatar != null)
+                    menu.add(Menu.FIRST, INFO_MENU_SAVE_AVATAR, 2, SawimApplication.getInstance().getString(R.string.save_avatar));
+            }
+
+            @Override
+            public void onContextItemSelected(int listItem, int itemMenuId) {
+                switch (itemMenuId) {
+                    case INFO_MENU_COPY:
+                        VirtualListItem item = profileView.getModel().elements.get(listItem);
+                        Clipboard.setClipBoardText(item.getLabel() + "\n" + item.getDescStr());
+                        break;
+
+                    case INFO_MENU_COPY_ALL:
+                        StringBuffer s = new StringBuffer();
+                        List<VirtualListItem> listItems = profileView.getModel().elements;
+                        for (int i = 0; i < listItems.size(); ++i) {
+                            s.append(listItems.get(i).getLabel()).append("\n")
+                                    .append(listItems.get(i).getDescStr()).append("\n");
+                        }
+                        Clipboard.setClipBoardText(s.toString());
+                        break;
+
+                    case INFO_MENU_SAVE_AVATAR:
+                        byte[] buffer = avatar;
+                        File file = new File(PATH);
+                        if (!file.exists())
+                            file.mkdirs();
+
+                        try {
+                            if (buffer != null) {
+                                String avatar = PATH + realUin.replace("/", "%") + ".png";
+                                FileOutputStream fos = new FileOutputStream(avatar);
+                                fos.write(buffer);
+                                fos.close();
+                            }
+                        } catch (Exception e) {
+                            DebugLog.println("Save avatar exception " + e.getMessage());
+                            e.printStackTrace();
+                        }
+                        Toast.makeText(SawimApplication.getContext(), R.string.saved + " " + avatar, Toast.LENGTH_SHORT).show();
+                        break;
+                }
+            }
+        });
+    }
+
+    private static final String PATH = Environment.getExternalStorageDirectory().getAbsolutePath() + "/sawimne/avatars/";
+
     public void setProfileViewToWait() {
         VirtualListModel profile = profileView.getModel();
         profile.clear();
         profile.addParam(protocol.getUserIdName(), uin);
+        profileView.updateModel();
         profile.setInfoMessage(JLocale.getString("wait"));
+        addContextMenu();
         profileView.setModel(profile);
+        profileView.updateModel();
     }
 
     public boolean isEditable() {
         boolean isEditable = false;
         isEditable |= (protocol instanceof Icq);
-        isEditable |= (protocol instanceof Jabber);
+        isEditable |= (protocol instanceof Xmpp);
         return isEditable && protocol.getUserId().equals(uin)
                 && protocol.isConnected();
     }
@@ -220,17 +304,24 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
         if (protocol instanceof Icq) {
             byte statusIndex = StatusInfo.STATUS_NA;
             switch (Util.strToIntDef(status, -1)) {
-                case 0: statusIndex = StatusInfo.STATUS_OFFLINE;   break;
-                case 1: statusIndex = StatusInfo.STATUS_ONLINE;    break;
-                case 2: statusIndex = StatusInfo.STATUS_INVISIBLE; break;
-                default: return null;
+                case 0:
+                    statusIndex = StatusInfo.STATUS_OFFLINE;
+                    break;
+                case 1:
+                    statusIndex = StatusInfo.STATUS_ONLINE;
+                    break;
+                case 2:
+                    statusIndex = StatusInfo.STATUS_INVISIBLE;
+                    break;
+                default:
+                    return null;
             }
             return protocol.getStatusInfo().getIcon(statusIndex);
         }
         return null;
     }
-    
-    
+
+
     public String getGenderAsString() {
         String[] g = {"", "female", "male"};
         return JLocale.getString(g[gender % 3]);
@@ -239,9 +330,11 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
     private String packString(String str) {
         return (null == str) ? "" : str.trim();
     }
+
     public String getName() {
         return packString(packString(firstName) + " " + packString(lastName));
     }
+
     public String getOptimalName() {
         String optimalName = packString(nick);
         if (optimalName.length() == 0) {
@@ -259,7 +352,7 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
     public void setAvatar(byte[] data) {
         avatar = null;
         if (null != data) {
-            avatar = General.avatarBitmap(data);
+            avatar = data;
         }
     }
 
@@ -277,6 +370,7 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
         }
         return "image/jpeg";
     }
+
     public void setBinAvatar(byte[] data) {
         try {
             setAvatar(data);
@@ -285,14 +379,15 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
         } catch (Exception ignored) {
         }
     }
+
     public void onFileSelect(String filename) throws SawimException {
         try {
             JSR75FileSystem file = FileSystem.getInstance();
             file.openFile(filename);
-            
+
             java.io.InputStream fis = file.openInputStream();
-            int size = (int)file.fileSize();
-            if (size <= 30*1024*1024) {
+            int size = (int) file.fileSize();
+            if (size <= 30 * 1024 * 1024) {
                 byte[] binAvatar = new byte[size];
                 int readed = 0;
                 while (readed < binAvatar.length) {
@@ -318,6 +413,7 @@ public class UserInfo implements PhotoListener, FileBrowserListener {
 
     public void onDirectorySelect(String directory) {
     }
+
     public void processPhoto(byte[] data) {
         setBinAvatar(data);
         data = null;

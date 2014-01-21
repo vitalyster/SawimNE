@@ -4,13 +4,15 @@ package sawim.modules;
 import DrawControls.icons.AniImageList;
 import DrawControls.icons.Icon;
 import DrawControls.icons.ImageList;
+import android.util.Log;
+import protocol.net.TcpSocket;
 import ru.sawim.General;
 import sawim.comm.StringConvertor;
-import protocol.net.TcpSocket;
 
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Vector;
 
 public final class Emotions {
@@ -20,21 +22,22 @@ public final class Emotions {
     private String[] selEmotionsWord;
     private String[] selEmotionsSmileNames;
 
-    private String smileChars;
     private int[] textCorrIndexes;
-    private String[] textCorrWords;
+    public String[] textCorrWords;
     private boolean isAniSmiles = false;
 
-    private Emotions() {}
+    private Emotions() {
+    }
+
     public static final Emotions instance = new Emotions();
 
-    private static final int PARSER_NONE        = 0;
-    private static final int PARSER_NUMBER      = 1;
-    private static final int PARSER_MNAME       = 2;
-    private static final int PARSER_NAME        = 3;
-    private static final int PARSER_LONG_NAME   = 4;
+    private static final int PARSER_NONE = 0;
+    private static final int PARSER_NUMBER = 1;
+    private static final int PARSER_MNAME = 2;
+    private static final int PARSER_NAME = 3;
+    private static final int PARSER_LONG_NAME = 4;
     private static final int PARSER_FIRST_SMILE = 5;
-    private static final int PARSER_SMILE       = 6;
+    private static final int PARSER_SMILE = 6;
 
     private void smileParser(String content, Vector textCorr, Vector selEmotions) {
         Integer curIndex = new Integer(0);
@@ -105,8 +108,8 @@ public final class Emotions {
                             word = content.substring(beginPos, i).trim();
                             if (word.length() != 0) {
                                 state = PARSER_SMILE;
-                                selEmotions.addElement(new Object[] {curIndex, word, smileName});
-                                textCorr.addElement(new Object[] {word, curIndex});
+                                selEmotions.addElement(new Object[]{curIndex, word, smileName});
+                                textCorr.addElement(new Object[]{word, curIndex});
                                 if (smileName.length() == 0) {
                                     smileName = word;
                                 }
@@ -117,8 +120,8 @@ public final class Emotions {
                             state = PARSER_NONE;
                             word = content.substring(beginPos, i).trim();
                             if (word.length() != 0) {
-                                selEmotions.addElement(new Object[] {curIndex, word, smileName});
-                                textCorr.addElement(new Object[] {word, curIndex});
+                                selEmotions.addElement(new Object[]{curIndex, word, smileName});
+                                textCorr.addElement(new Object[]{word, curIndex});
                                 if (smileName.length() == 0) {
                                     smileName = word;
                                 }
@@ -133,7 +136,7 @@ public final class Emotions {
                         case ',':
                             word = content.substring(beginPos, i).trim();
                             if ((0 < word.length()) && (word.length() < 30)) {
-                                textCorr.addElement(new Object[] {word, curIndex});
+                                textCorr.addElement(new Object[]{word, curIndex});
                             }
                             beginPos = i + 1;
                             break;
@@ -141,7 +144,7 @@ public final class Emotions {
                             state = PARSER_NONE;
                             word = content.substring(beginPos, i).trim();
                             if ((0 < word.length()) && (word.length() < 30)) {
-                                textCorr.addElement(new Object[] {word, curIndex});
+                                textCorr.addElement(new Object[]{word, curIndex});
                             }
                             curIndex = new Integer(curIndex.intValue() + 1);
                             break;
@@ -158,23 +161,22 @@ public final class Emotions {
         } catch (Exception ex) {
         }
         if (!loaded) {
-            selEmotionsIndexes    = null;
-            selEmotionsWord       = null;
+            selEmotionsIndexes = null;
+            selEmotionsWord = null;
             selEmotionsSmileNames = null;
             images = null;
         }
     }
 
     private ImageList loadIcons(int iconsSize) throws IOException {
-        ImageList emoImages = null;
-        emoImages = new AniImageList();
+        ImageList emoImages = new AniImageList();
         emoImages.load("/smiles", iconsSize, iconsSize);
         if (0 < emoImages.size()) {
             isAniSmiles = true;
             return emoImages;
         }
         emoImages = new ImageList();
-        emoImages.load("/smiles.png", iconsSize, iconsSize);
+        emoImages.loadSmiles();
         return emoImages;
     }
 
@@ -186,8 +188,8 @@ public final class Emotions {
         General.gc();
         long mem = Runtime.getRuntime().freeMemory();
 
-        InputStream stream = null;
-        stream = General.getResourceAsStream("/smiles/smiles.txt");
+        InputStream stream = General.getResourceAsStream("/smiles/smiles.txt");
+
         if (null == stream) {
             stream = General.getResourceAsStream("/smiles.txt");
         }
@@ -205,42 +207,39 @@ public final class Emotions {
             smileParser(content, textCorr, selEmotions);
             TcpSocket.close(dos);
         } catch (Exception e) {
+            Log.e("smiles", "load " + e.getMessage());
         }
         TcpSocket.close(stream);
         if (0 == emoImages.size()) {
             return false;
         }
         int size = selEmotions.size();
-        selEmotionsIndexes    = new int[size];
-        selEmotionsWord       = new String[size];
+        selEmotionsIndexes = new int[size];
+        selEmotionsWord = new String[size];
         selEmotionsSmileNames = new String[size];
         for (int i = 0; i < size; ++i) {
-            Object[] data            = (Object[])selEmotions.elementAt(i);
-            selEmotionsIndexes[i]    = ((Integer)data[0]).intValue();
-            selEmotionsWord[i]       = (String)data[1];
-            selEmotionsSmileNames[i] = (String)data[2];
+            Object[] data = (Object[]) selEmotions.elementAt(i);
+            selEmotionsIndexes[i] = ((Integer) data[0]).intValue();
+            selEmotionsWord[i] = (String) data[1];
+            selEmotionsSmileNames[i] = (String) data[2];
         }
 
         size = textCorr.size();
-        textCorrWords   = new String[size];
+        textCorrWords = new String[size];
         textCorrIndexes = new int[size];
-        StringBuffer fisrtChars = new StringBuffer(textCorr.size());
         for (int i = 0; i < size; ++i) {
-            Object[] data = (Object[])textCorr.elementAt(i);
-            textCorrWords[i]   = (String)data[0];
-            textCorrIndexes[i] = ((Integer)data[1]).intValue();
-
-            fisrtChars.append(textCorrWords[i].charAt(0));
+            Object[] data = (Object[]) textCorr.elementAt(i);
+            textCorrWords[i] = (String) data[0];
+            textCorrIndexes[i] = ((Integer) data[1]).intValue();
         }
-        this.smileChars = fisrtChars.toString();
 
-        DebugLog.println("Emotions used (full): "+(mem - Runtime.getRuntime().freeMemory()));
+        DebugLog.println("Emotions used (full): " + (mem - Runtime.getRuntime().freeMemory()));
         selEmotions.removeAllElements();
         selEmotions = null;
         textCorr.removeAllElements();
         textCorr = null;
         General.gc();
-        DebugLog.println("Emotions used: "+(mem - Runtime.getRuntime().freeMemory()));
+        DebugLog.println("Emotions used: " + (mem - Runtime.getRuntime().freeMemory()));
         General.gc();
         images = emoImages;
         return true;
@@ -259,16 +258,20 @@ public final class Emotions {
         return value;
     }
 
-    public String getSmileChars() {
-        return smileChars;
+    public HashMap<String, Integer> buildSmileyToId() {
+        HashMap<String, Integer> smileyToId = new HashMap<String, Integer>(textCorrWords.length);
+        for (int i = 0; i < textCorrWords.length; i++) {
+            smileyToId.put(textCorrWords[i], i);
+        }
+        return smileyToId;
     }
 
     public Icon getSmileIcon(int smileIndex) {
         return images.iconAt(textCorrIndexes[smileIndex]);
     }
 
-    public String getSmileText(int smileIndex) {
-        return textCorrWords[smileIndex];
+    public String[] getSmileTexts() {
+        return textCorrWords;
     }
 
     public String getSmileCode(int smileIndex) {

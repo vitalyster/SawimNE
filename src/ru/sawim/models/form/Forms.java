@@ -1,15 +1,16 @@
 package ru.sawim.models.form;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
-import android.support.v4.app.FragmentActivity;
-import android.util.Log;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import ru.sawim.SawimApplication;
+import ru.sawim.view.FormView;
+import ru.sawim.view.preference.PreferenceFormView;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.modules.DebugLog;
 import sawim.util.JLocale;
-import ru.sawim.activities.FormActivity;
-import ru.sawim.activities.SawimActivity;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,6 +23,7 @@ import java.util.List;
  */
 public class Forms {
 
+
     public List<Control> controls = new ArrayList<Control>();
     public static final byte CONTROL_TEXT = 0;
     public static final byte CONTROL_INPUT = 1;
@@ -30,33 +32,42 @@ public class Forms {
     public static final byte CONTROL_GAUGE = 4;
     public static final byte CONTROL_IMAGE = 5;
     public static final byte CONTROL_LINK = 6;
+    public static final byte CONTROL_GAUGE_FONT = 7;
     private OnUpdateForm updateFormListener;
     private FormListener formListener;
     private OnBackPressed backPressedListener;
     private ControlStateListener controlListener;
-    public CharSequence caption;
+    private CharSequence caption;
     private static Forms instance;
+    private boolean isAccept;
 
-    public void back() {
-        updateFormListener.back();
-        destroy();
+    public static class Control {
+        public int id;
+        public String description;
+        public String label;
+        public byte type;
+
+        public String text; // input
+        public boolean selected;// checkbox
+        public String[] items;// select
+        public int current;
+        public int level;// gauge
+        public Drawable image;
     }
 
-    public void backForm() {
-        updateFormListener.back();
+    public Forms(String caption_, FormListener l, boolean isAccept) {
+        instance = this;
+        caption = JLocale.getString(caption_);
+        formListener = l;
+        this.isAccept = isAccept;
     }
 
-    public void show() {
-        SawimActivity.getInstance().startActivity(new Intent(SawimActivity.getInstance(), FormActivity.class));
+    public static Forms getInstance() {
+        return instance;
     }
 
-    public void show(FragmentActivity a) {
-        a.startActivity(new Intent(a, FormActivity.class));
-    }
-
-    public void invalidate() {
-        if (updateFormListener != null)
-            updateFormListener.updateForm();
+    public void setControlStateListener(ControlStateListener l) {
+        controlListener = l;
     }
 
     public void setUpdateFormListener(OnUpdateForm l) {
@@ -67,16 +78,21 @@ public class Forms {
         return formListener;
     }
 
-    public static Forms getInstance() {
-        return instance;
+    public boolean isAccept() {
+        return isAccept;
     }
 
     public void setCaption(String caption) {
         this.caption = caption;
     }
 
+    public CharSequence getCaption() {
+        return caption;
+    }
+
     public interface OnUpdateForm {
         void updateForm();
+
         void back();
     }
 
@@ -92,40 +108,22 @@ public class Forms {
         this.backPressedListener = backPressedListener;
     }
 
-    public static class Control {
-        public int id;
-        public String description;
-        public String label;
-        public byte type;
-
-        public String text; // input
-        public boolean selected;// checkbox
-        public String[] items;// select
-        public int current;
-        public int level;// gauge
-        public Bitmap image;
+    public void show() {
+        FormView.show();
     }
 
-    public Forms(String caption_, FormListener l) {
-        caption = JLocale.getString(caption_);
-        formListener = l;
-		instance = this;
+    public void preferenceFormShow() {
+        PreferenceFormView.show();
     }
 
-    public void setControlStateListener(ControlStateListener l) {
-        controlListener = l;
+    public void invalidate() {
+        if (updateFormListener != null)
+            updateFormListener.updateForm();
     }
 
-    public void destroy() {
-        clearForm();
-        clearListeners();
-    }
-
-    public void clearListeners() {
-        formListener = null;
-        controlListener = null;
-        updateFormListener = null;
-        backPressedListener = null;
+    public void back() {
+        if (updateFormListener != null)
+            updateFormListener.back();
     }
 
     private Control create(int controlId, byte type, String label, String desc) {
@@ -146,6 +144,10 @@ public class Forms {
     private void add(Control c) {
         controls.add(c);
         invalidate();
+    }
+
+    public int getSize() {
+        return controls.size();
     }
 
     public void clearForm() {
@@ -172,6 +174,13 @@ public class Forms {
         label = (null == label) ? " " : label;
         Control c = create(controlId, CONTROL_GAUGE, null, JLocale.getString(label));
         c.level = current / 10;
+        add(c);
+    }
+
+    public void addFontVolumeControl(int controlId, String label, int current) {
+        label = (null == label) ? " " : label;
+        Control c = create(controlId, CONTROL_GAUGE_FONT, null, JLocale.getString(label));
+        c.level = current;
         add(c);
     }
 
@@ -217,7 +226,7 @@ public class Forms {
         addTextField_(controlId, label, text);
     }
 
-    public void addTextField_(int controlId, String label, String text) {
+    private void addTextField_(int controlId, String label, String text) {
         label = (null == label) ? " " : label;
         Control c = create(controlId, CONTROL_INPUT, null, JLocale.getString(label));
         text = StringConvertor.notNull(text);
@@ -225,9 +234,15 @@ public class Forms {
         add(c);
     }
 
-    public void addBitmap(Bitmap img) {
+    public void addDrawable(Drawable img) {
         Control c = create(-1, CONTROL_IMAGE, null, null);
         c.image = img;
+        add(c);
+    }
+
+    public void addBitmap(Bitmap img) {
+        Control c = create(-1, CONTROL_IMAGE, null, null);
+        c.image = new BitmapDrawable(SawimApplication.getContext().getResources(), img);
         add(c);
     }
 
@@ -252,9 +267,11 @@ public class Forms {
         }
         return null;
     }
+
     public boolean hasControl(int controlId) {
         return null != get(controlId);
     }
+
     public void setTextFieldLabel(int controlId, String desc) {
         Control c = get(controlId);
         c.description = desc;
@@ -269,9 +286,11 @@ public class Forms {
         }
         return 0;
     }
+
     public int getVolumeValue(int controlId) {
         return getGaugeValue(controlId) * 10;
     }
+
     public String getTextFieldValue(int controlId) {
         try {
             return get(controlId).text;
@@ -280,15 +299,16 @@ public class Forms {
         }
         return null;
     }
+
     public int getSelectorValue(int controlId) {
         try {
-            Log.e("Forms", ""+controlId);
             return get(controlId).current;
         } catch (Exception e) {
             DebugLog.panic("getSelectorValue", e);
         }
         return 0;
     }
+
     public String getSelectorString(int controlId) {
         try {
             return get(controlId).items[get(controlId).current];
@@ -305,10 +325,6 @@ public class Forms {
             DebugLog.panic("getChoiceItemValue", e);
         }
         return false;
-    }
-
-    public int getSize() {
-        return controls.size();
     }
 
     public void controlUpdated(Control c) {

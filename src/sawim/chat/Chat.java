@@ -1,23 +1,21 @@
 package sawim.chat;
 
-import android.util.Log;
+import protocol.Contact;
+import protocol.Protocol;
+import protocol.xmpp.Jid;
+import protocol.xmpp.Xmpp;
+import protocol.xmpp.XmppContact;
+import protocol.xmpp.XmppServiceContact;
 import ru.sawim.General;
 import sawim.Options;
 import sawim.chat.message.Message;
 import sawim.chat.message.PlainMessage;
 import sawim.chat.message.SystemNotice;
-import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.history.CachedRecord;
 import sawim.history.HistoryStorage;
-import protocol.Contact;
-import protocol.Protocol;
-import protocol.jabber.Jabber;
-import protocol.jabber.JabberContact;
-import protocol.jabber.JabberServiceContact;
-import protocol.jabber.Jid;
-import sawim.modules.MagicEye;
+import sawim.roster.RosterHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,10 +25,14 @@ public final class Chat {
     private Contact contact;
     private boolean writable = true;
     private HistoryStorage history;
-    private boolean showStatus = true;
     private List<MessData> messData = new ArrayList<MessData>();
-    private boolean visibleChat;
     public static final String ADDRESS = ", ";
+    private boolean visibleChat;
+
+    public String message = "";
+    public int scrollPosition;
+    public int offset;
+    public int dividerPosition;
 
     public Chat(Protocol p, Contact item) {
         contact = item;
@@ -40,25 +42,6 @@ public final class Chat {
 
     void setContact(Contact item) {
         contact = item;
-    }
-
-    public void updateStatus() {
-        showStatus = true;
-        showStatusPopup();
-    }
-
-    private boolean isBlogBot() {
-        if (contact instanceof JabberContact) {
-            return ((Jabber) protocol).isBlogBot(contact.getUserId());
-        }
-        return false;
-    }
-    public boolean isHuman() {
-        boolean service = isBlogBot() || protocol.isBot(contact);
-        if (contact instanceof JabberContact) {
-            service |= Jid.isGate(contact.getUserId());
-        }
-        return !service && contact.isSingleUserContact();
     }
 
     public Protocol getProtocol() {
@@ -100,35 +83,11 @@ public final class Chat {
     }
 
     public void addFileProgress(String caption, String text) {
-        final MessData mData = new MessData(General.getCurrentGmtTime(), text, caption, MessData.PROGRESS, Message.ICON_NONE);
-        if (General.getInstance().getUpdateChatListener() == null) {
-            removeOldMessages();
-            messData.add(mData);
-        } else {
-            General.getInstance().getUpdateChatListener().addMessage(this, mData);
-        }
-    }
-
-    public int getIcon(Message message, boolean incoming) {
-        if (message instanceof SystemNotice) {
-            int type = ((SystemNotice)message).getSysnoteType();
-            if (SystemNotice.SYS_NOTICE_MESSAGE == type) {
-                return Message.ICON_NONE;
-            }
-            return Message.ICON_SYSREQ;
-        }
-        if (incoming) {
-            if (!contact.isSingleUserContact()
-                    && !isHighlight(message.getProcessedText(), getMyName())) {
-                return Message.ICON_IN_MSG;
-            }
-            return Message.ICON_IN_MSG_HI;
-        }
-        return Message.ICON_OUT_MSG;
+        addMessage(new MessData(contact, General.getCurrentGmtTime(), text, caption, MessData.PROGRESS, false));
     }
 
     public String getMyName() {
-        if (contact instanceof JabberServiceContact) {
+        if (contact instanceof XmppServiceContact) {
             String nick = contact.getMyName();
             if (null != nick) return nick;
         }
@@ -136,66 +95,109 @@ public final class Chat {
     }
 
     public void activate() {
-        if (showStatus) {
-            showStatusPopup();
-        }
-        ContactList.getInstance().activate(contact);
+        RosterHelper.getInstance().activate(contact);
     }
 
     public void sendMessage(String message) {
-        ChatHistory.instance.registerChat(this);
-        if (!contact.isSingleUserContact() && message.endsWith(", ")) {
-            message = "";
-        }
+        if (getMessCount() <= 1)
+            ChatHistory.instance.registerChat(this);
+        //if (!contact.isSingleUserContact() && message.endsWith(", ")) {
+        //    message = "";
+        //}
         if (!StringConvertor.isEmpty(message)) {
             protocol.sendMessage(contact, message, true);
         }
     }
-    
-    private void showStatusPopup() {
-        showStatus = false;
+
+    private String getBlogPostId(String text) {
+        if (StringConvertor.isEmpty(text)) {
+            return null;
+        }
+        String lastLine = text.substring(text.lastIndexOf('\n') + 1);
+        if (0 == lastLine.length()) {
+            return null;
+        }
+        if ('#' != lastLine.charAt(0)) {
+            return null;
+        }
+        int numEnd = lastLine.indexOf(' ');
+        if (-1 != numEnd) {
+            lastLine = lastLine.substring(0, numEnd);
+        }
+        return lastLine + " ";
+    }
+
+    private String writeMessageTo(String nick) {
+        if (null != nick) {
+            if ('/' == nick.charAt(0)) {
+                nick = ' ' + nick;
+            }
+            nick += Chat.ADDRESS;
+
+        } else {
+            nick = "";
+        }
+        return nick;
+    }
+
+    private boolean isBlogBot() {
+        if (contact instanceof XmppContact) {
+            return ((Xmpp) protocol).isBlogBot(contact.getUserId());
+        }
+        return false;
+    }
+
+    public boolean isHuman() {
+        boolean service = isBlogBot() || protocol.isBot(contact);
+        if (contact instanceof XmppContact) {
+            service |= Jid.isGate(contact.getUserId());
+        }
+        return !service && contact.isSingleUserContact();
+    }
+
+    public String onMessageSelected(MessData md) {
+        if (contact.isSingleUserContact()) {
+            if (isBlogBot()) {
+                return getBlogPostId(md.getText().toString());
+            }
+            return "";
+        }
+        String nick = ((null == md) || md.isFile()) ? null : md.getNick();
+        return writeMessageTo(getMyName().equals(nick) ? null : nick);
     }
 
     public boolean hasHistory() {
         return contact.hasHistory();
     }
-    private int getMessCount() {
-            return messCount();
-    }
-    private void fillFromHistory() {
-        if (!hasHistory()) {
-            return;
-        }
-        if (isBlogBot()) {
-            return;
-        }
-        if (Options.getBoolean(Options.OPTION_HISTORY)) {
-            if (0 != getMessCount()) {
-                return;
-            }
-            HistoryStorage hist = getHistory();
-            hist.openHistory();
-            int recCount = hist.getHistorySize();
-            if (0 == recCount) {
-                return;
-            }
 
-            for (int i = 0; i < recCount; ++i) {
-                CachedRecord rec = hist.getRecord(i);
-                if (null == rec) {
-                    continue;
-                }
-                long date = Util.createLocalDate(rec.date);
-                PlainMessage message;
-                if (rec.isIncoming()) {
-                    message = new PlainMessage(rec.from, protocol, date, rec.text, true);
-                } else {
-                    message = new PlainMessage(protocol, contact, date, rec.text);
-                }
-                addTextToForm(message, getFrom(message));
+    private void fillFromHistory() {
+        if (isBlogBot()) return;
+        //if (Options.getBoolean(Options.OPTION_HISTORY)) {
+        if (0 != getMessCount()) return;
+
+        HistoryStorage hist = getHistory();
+        if (hist == null) return;
+
+        hist.openHistory();
+        int recCount = hist.getHistorySize();
+        if (0 == recCount) return;
+
+        for (int i = 0; i < recCount; ++i) {
+            CachedRecord rec = hist.getRecord(i);
+            if (null == rec) {
+                continue;
             }
-            hist.closeHistory();
+            long date = Util.createLocalDate(rec.date);
+            PlainMessage message;
+            if (rec.isIncoming()) {
+                message = new PlainMessage(rec.from, protocol, date, rec.text, true);
+            } else {
+                message = new PlainMessage(protocol, contact, date, rec.text);
+            }
+            addTextToForm(message, contact.isConference() ? rec.from : getFrom(message), Chat.isHighlight(message.getProcessedText(), contact.getMyName()));
         }
+        hist.closeHistory();
+        //}
     }
 
     public HistoryStorage getHistory() {
@@ -205,7 +207,7 @@ public final class Chat {
         return history;
     }
 
-    public int messCount() {
+    public int getMessCount() {
         return messData.size();
     }
 
@@ -250,8 +252,9 @@ public final class Chat {
         return md.getTime();
     }
 
+    public int typeNewMessageIcon = Message.ICON_NONE;
     private short messageCounter = 0;
-    private short allMessagesCounter = 0;
+    private short otherMessageCounter = 0;
     private byte sysNoticeCounter = 0;
     private byte authRequestCounter = 0;
 
@@ -265,11 +268,12 @@ public final class Chat {
     }
 
     public void resetUnreadMessages() {
+        typeNewMessageIcon = Message.ICON_NONE;
         boolean notEmpty = (0 < messageCounter)
-                || (0 < allMessagesCounter)
+                || (0 < otherMessageCounter)
                 || (0 < sysNoticeCounter);
         messageCounter = 0;
-        allMessagesCounter = 0;
+        otherMessageCounter = 0;
         sysNoticeCounter = 0;
         if (notEmpty) {
             contact.updateChatState(this);
@@ -278,14 +282,19 @@ public final class Chat {
     }
 
     public int getUnreadMessageCount() {
-        return messageCounter + sysNoticeCounter + authRequestCounter;
+        return messageCounter + sysNoticeCounter + authRequestCounter
+                + otherMessageCounter;
     }
+
     public int getPersonalUnreadMessageCount() {
         return messageCounter + sysNoticeCounter + authRequestCounter;
     }
-	public int getAllMessagesCount() {
-	    return allMessagesCounter;
-	}
+
+    public int getOtherMessageCount() {
+        return sysNoticeCounter + authRequestCounter
+                + otherMessageCounter;
+    }
+
     public int getAuthRequestCounter() {
         return authRequestCounter;
     }
@@ -295,17 +304,18 @@ public final class Chat {
             return Message.ICON_IN_MSG_HI;
         } else if (0 < authRequestCounter) {
             return Message.ICON_SYSREQ;
-        } else if (0 < allMessagesCounter) {
+        } else if (0 < otherMessageCounter) {
             return Message.ICON_IN_MSG;
         } else if (0 < sysNoticeCounter) {
             return Message.ICON_SYS_OK;
         }
-        return -1;
+        return Message.ICON_NONE;
     }
 
     private short inc(short val) {
         return (short) ((val < Short.MAX_VALUE) ? (val + 1) : val);
     }
+
     private byte inc(byte val) {
         return (byte) ((val < Byte.MAX_VALUE) ? (val + 1) : val);
     }
@@ -323,15 +333,15 @@ public final class Chat {
         if ((null == md) || (null == md.getText())) {
             return;
         }
-        addToHistory(md.getText(), md.isIncoming(), md.getNick(), md.getTime());
+        addToHistory(md.getText().toString(), md.isIncoming(), md.getNick(), md.getTime());
     }
 
     private boolean isHistory() {
         boolean useHist = Options.getBoolean(Options.OPTION_HISTORY);
-        if (contact instanceof JabberServiceContact) {
-            return useHist && contact.isHistory() == (byte)1;
+        if (contact instanceof XmppServiceContact) {
+            return useHist && contact.isHistory() == (byte) 1;
         }
-        return useHist || contact.isHistory() == (byte)1;
+        return useHist || contact.isHistory() == (byte) 1;
     }
 
     private String getFrom(Message message) {
@@ -344,9 +354,8 @@ public final class Chat {
         return senderName;
     }
 
-    private void addTextToForm(Message message, String from) {
+    private void addTextToForm(Message message, String from, boolean isHighlight) {
         boolean incoming = message.isIncoming();
-
         String messageText = message.getProcessedText();
         messageText = StringConvertor.removeCr(messageText);
         if (StringConvertor.isEmpty(messageText)) {
@@ -372,47 +381,44 @@ public final class Chat {
         if (message instanceof SystemNotice) {
             flags |= MessData.SERVICE;
         }
-        final MessData mData = new MessData(message.getNewDate(), messageText, from, flags, getIcon(message, incoming));
+
+        final MessData mData = new MessData(contact, message.getNewDate(), messageText, from, flags, isHighlight);
         if (!incoming) {
             message.setVisibleIcon(mData);
         }
-        if (General.getInstance().getUpdateChatListener() == null) {
-            removeOldMessages();
-            messData.add(mData);
-        } else {
-            General.getInstance().getUpdateChatListener().addMessage(this, mData);
-        }
+        addMessage(mData);
+    }
+
+    private void addMessage(MessData mData) {
+        messData.add(mData);
     }
 
     public void addPresence(SystemNotice message) {
-        ChatHistory.instance.registerChat(this);
+        if (getMessCount() <= 1)
+            ChatHistory.instance.registerChat(this);
         String messageText = message.getProcessedText();
-        final MessData mData = new MessData(message.getNewDate(), messageText, message.getName(), MessData.PRESENCE, Message.ICON_NONE);
-        if (General.getInstance().getUpdateChatListener() == null) {
-            removeOldMessages();
-            messData.add(mData);
-        } else {
-            General.getInstance().getUpdateChatListener().addMessage(this, mData);
-        }
+        addMessage(new MessData(contact, message.getNewDate(), messageText, message.getName(), MessData.PRESENCE, false));
         if (!isVisibleChat()) {
             contact.updateChatState(this);
             ChatHistory.instance.updateChatList();
         }
     }
 
-    public void addMessage(Message message, boolean toHistory) {
-        ChatHistory.instance.registerChat(this);
+    public void addMessage(Message message, boolean toHistory, boolean isHighlight) {
+        if (getMessCount() <= 1)
+            ChatHistory.instance.registerChat(this);
         boolean inc = !isVisibleChat();
+        String from = getFrom(message);
         if (message instanceof PlainMessage) {
-            addTextToForm(message, getFrom(message));
+            addTextToForm(message, from, isHighlight);
             if (toHistory && isHistory()) {
-                final String nick = getFrom(message);
+                final String nick = from;
                 addToHistory(message.getText(), true, nick, message.getNewDate());
             }
             if (inc) {
                 messageCounter = inc(messageCounter);
-                if (!contact.isSingleUserContact()
-                        && !isHighlight(message.getProcessedText(), getMyName())) {
+                if (!contact.isSingleUserContact() && !isHighlight) {
+                    otherMessageCounter = inc(otherMessageCounter);
                     messageCounter--;
                 }
             }
@@ -424,22 +430,23 @@ public final class Chat {
             } else if (inc) {
                 sysNoticeCounter = inc(sysNoticeCounter);
             }
-            MagicEye.addAction(protocol, contact.getUserId(), message.getText());
-            addTextToForm(message, getFrom(message));
+            //MagicEye.addAction(protocol, contact.getUserId(), message.getText());
+            addTextToForm(message, from, isHighlight);
         }
         if (inc) {
-            allMessagesCounter = inc(allMessagesCounter);
             contact.updateChatState(this);
             ChatHistory.instance.updateChatList();
         }
     }
 
     public void addMyMessage(PlainMessage message) {
-        ChatHistory.instance.registerChat(this);
+        String from = getFrom(message);
+        if (getMessCount() <= 1)
+            ChatHistory.instance.registerChat(this);
         resetUnreadMessages();
-        addTextToForm(message, getFrom(message));
+        addTextToForm(message, from, false);
         if (isHistory()) {
-            addToHistory(message.getText(), false, getFrom(message), message.getNewDate());
+            addToHistory(message.getText(), false, from, message.getNewDate());
         }
     }
 
@@ -448,7 +455,7 @@ public final class Chat {
     }
 
     MessData getUnreadMessage(int num) {
-        int index = getMessCount() - getAllMessagesCount() + num;
+        int index = getMessCount() - getOtherMessageCount() + num;
         return getMessageDataByIndex(index);
     }
 

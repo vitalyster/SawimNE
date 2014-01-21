@@ -1,30 +1,20 @@
 package ru.sawim;
 
 import android.content.Context;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
-import android.os.Handler;
-import android.util.DisplayMetrics;
-import android.widget.Toast;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBarActivity;
+import android.view.WindowManager;
 import sawim.Options;
 import sawim.Updater;
-import sawim.chat.Chat;
 import sawim.chat.ChatHistory;
-import sawim.chat.MessData;
-import ru.sawim.activities.SawimActivity;
-import sawim.cl.ContactList;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.modules.*;
+import sawim.roster.RosterHelper;
 import sawim.search.Search;
 import sawim.util.JLocale;
 
-import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -36,20 +26,90 @@ import java.io.InputStream;
  */
 public class General {
 
-    private static General instance;
     public static final String NAME = SawimApplication.getInstance().getString(R.string.app_name);
     public static final String VERSION = SawimApplication.getInstance().getVersion();
-    public static final String PHONE = "android/" + android.os.Build.MODEL
+    public static final String PHONE = "Android/" + android.os.Build.MODEL
             + "/" + android.os.Build.VERSION.RELEASE;
+    public static final String DEFAULT_SERVER = "jabber.ru";
 
+    private static General instance;
+    public static boolean returnFromAcc = false;
+    public static ActionBarActivity currentActivity;
+    public static ActionBar actionBar;
+    private static Resources resources;
     private boolean paused = true;
-
-    public void init() {
-        instance = this;
-    }
+    private static int fontSize;
+    public static boolean showStatusLine;
+    public static int sortType;
+    private float displayDensity;
 
     public static General getInstance() {
         return instance;
+    }
+
+    public void startApp() {
+        instance = this;
+        instance.paused = false;
+        ru.sawim.config.HomeDirectory.init();
+        Options.loadOptions();
+        new ru.sawim.config.Options().load();
+        JLocale.loadLanguageList();
+        Scheme.load();
+        Scheme.setColorScheme(Options.getInt(Options.OPTION_COLOR_SCHEME));
+        updateOptions();
+        Updater.startUIUpdater();
+        try {
+            Notify.getSound().initSounds();
+            gc();
+            Emotions.instance.load();
+            StringConvertor.load();
+            Answerer.getInstance().load();
+            gc();
+
+            Options.loadAccounts();
+            RosterHelper.getInstance().initAccounts();
+            RosterHelper.getInstance().loadAccounts();
+            sawim.modules.tracking.Tracking.loadTrackingFromRMS();
+        } catch (Exception e) {
+            DebugLog.panic("init", e);
+            DebugLog.instance.activate();
+        }
+        DebugLog.startTests();
+        displayDensity = General.getResources(SawimApplication.getContext()).getDisplayMetrics().density;
+    }
+
+    public static void updateOptions() {
+        SawimResources.initIcons();
+        fontSize = Options.getInt(Options.OPTION_FONT_SCHEME);
+        showStatusLine = Options.getBoolean(Options.OPTION_SHOW_STATUS_LINE);
+        sortType = Options.getInt(Options.OPTION_CL_SORT_BY);
+    }
+
+    public static boolean isManyPane() {
+        int rotation = ((WindowManager) SawimApplication.getContext()
+                .getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRotation();
+        if (rotation == 0 && isTablet())
+            return false;
+        return isTablet();
+    }
+
+    public static boolean isTablet() {
+        return getResources(SawimApplication.getContext()).getBoolean(R.bool.is_tablet);
+    }
+
+    public void quit(boolean isForceClose) {
+        RosterHelper cl = RosterHelper.getInstance();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e1) {
+        }
+        cl.safeSave();
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e1) {
+        }
+        ChatHistory.instance.saveUnreadMessages();
+        AutoAbsence.getInstance().online();
     }
 
     public static long getCurrentGmtTime() {
@@ -58,7 +118,7 @@ public class General {
     }
 
     public static void openUrl(String url) {
-        Search search = ContactList.getInstance().getManager().getCurrentProtocol().getSearchForm();
+        Search search = RosterHelper.getInstance().getCurrentProtocol().getSearchForm();
         search.show(Util.getUrlWithoutProtocol(url), true);
     }
 
@@ -74,76 +134,18 @@ public class General {
         return in;
     }
 
-    public void startApp() {
-        if (!paused && (null != General.instance)) {
-            return;
-        }
-        General.instance = this;
-        instance.paused = false;
-
-        ru.sawim.config.HomeDirectory.init();
-        JLocale.loadLanguageList();
-        Scheme.load();
-        Options.loadOptions();
-        new ru.sawim.config.Options().load();
-        JLocale.setCurrUiLanguage(Options.getString(Options.OPTION_UI_LANGUAGE));
-        Scheme.setColorScheme(Options.getInt(Options.OPTION_COLOR_SCHEME));
-        Updater.startUIUpdater();
-
-        try {
-            Notify.getSound().initSounds();
-            gc();
-            Emotions.instance.load();
-            StringConvertor.load();
-            Answerer.getInstance().load();
-            gc();
-
-            Options.loadAccounts();
-            ContactList.getInstance().initUI();
-            ContactList.getInstance().initAccounts();
-            ContactList.getInstance().loadAccounts();
-            sawim.modules.tracking.Tracking.loadTrackingFromRMS();
-        } catch (Exception e) {
-            DebugLog.panic("init", e);
-            DebugLog.instance.activateCrashLog();
-        }
-    }
-
-    public void quit() {
-        ContactList cl = ContactList.getInstance();
-        boolean wait;
-        try {
-            wait = cl.disconnect();
-        } catch (Exception e) {
-            return;
-        }
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e1) {
-        }
-        cl.safeSave();
-        if (wait) {
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e1) {
-            }
-        }
-        ChatHistory.instance.saveUnreadMessages();
-    }
-
     public static boolean isPaused() {
         return instance.paused;
     }
 
     public static void maximize() {
-        AutoAbsence.instance.online();
+        AutoAbsence.getInstance().online();
         instance.paused = false;
     }
 
     public static void minimize() {
-        sawim.modules.AutoAbsence.instance.userActivity();
+        sawim.modules.AutoAbsence.getInstance().userActivity();
         instance.paused = true;
-        AutoAbsence.instance.away();
     }
 
     public static void gc() {
@@ -155,83 +157,32 @@ public class General {
     }
 
     public static int getFontSize() {
-        Resources res = SawimApplication.getInstance().getResources();
-        switch (Options.getInt(Options.OPTION_FONT_SCHEME)) {
-            case 0:
-                return res.getDimensionPixelSize(R.dimen.smallest_10_font_size);
-            case 1:
-                return res.getDimensionPixelSize(R.dimen.smallest_13_font_size);
-            case 2:
-                return res.getDimensionPixelSize(R.dimen.small_font_size);
-            case 3:
-                return res.getDimensionPixelSize(R.dimen.medium_font_size);
-            case 4:
-                return res.getDimensionPixelSize(R.dimen.large_font_size);
+        return fontSize;
+    }
+
+    public static Resources getResources(Context c) {
+        if (resources == null) {
+            resources = (c == null) ? Resources.getSystem() : c.getResources();
         }
-        return 15;
+        return resources;
     }
 
-    public InputStream getResourceAsStream(Context c, Class origClass, String name) {
-        try {
-            if (name.startsWith("/")) {
-                return c.getAssets().open(name.substring(1));
-            } else {
-                Package p = origClass.getPackage();
-                if (p == null) {
-                    return c.getAssets().open(name);
-                } else {
-                    String folder = origClass.getPackage().getName().replace('.', '/');
-                    return c.getAssets().open(folder + "/" + name);
-                }
-            }
-        } catch (IOException e) {
-            //Logger.debug(e); // large output with BombusMod
-            return null;
-        }
+    private static OnConfigurationChanged configurationChanged;
+
+    public OnConfigurationChanged getConfigurationChanged() {
+        return configurationChanged;
     }
 
-    public static boolean isTablet(Context context) {
-        boolean xlarge = ((context.getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK) == 4);
-        boolean large = ((context.getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK) == Configuration.SCREENLAYOUT_SIZE_LARGE);
-        return (xlarge || large);
+    public void setConfigurationChanged(OnConfigurationChanged cC) {
+        if (configurationChanged == null)
+            configurationChanged = cC;
     }
 
-    public static Bitmap avatarBitmap(byte[] buffer) {
-        if (buffer == null) return null;
-        DisplayMetrics metrics = new DisplayMetrics();
-        SawimActivity.getInstance().getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        float scaleWidth = metrics.scaledDensity;
-        float scaleHeight = metrics.scaledDensity;
-
-        Matrix matrix = new Matrix();
-        matrix.postScale(scaleWidth, scaleHeight);
-        Bitmap bitmap = BitmapFactory.decodeByteArray(buffer, 0, buffer.length);
-        int width = bitmap.getWidth();
-        if (width > metrics.widthPixels)  {
-            double k = (double)width/(double)metrics.widthPixels;
-            int h = (int) (bitmap.getWidth()/k);
-            bitmap = Bitmap.createBitmap(bitmap, 0, 0, metrics.widthPixels, h, matrix, true);
-            bitmap.setDensity(metrics.densityDpi);
-        } else {
-            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-            bitmap.setDensity(metrics.densityDpi);
-        }
-        return bitmap;
+    public float getDisplayDensity() {
+        return displayDensity;
     }
 
-    private OnUpdateChat updateChatListener;
-    public void setOnUpdateChat(OnUpdateChat l) {
-        updateChatListener = l;
-    }
-
-    public OnUpdateChat getUpdateChatListener() {
-        return updateChatListener;
-    }
-
-    public interface OnUpdateChat {
-        void updateChat();
-        void addMessage(Chat chat, MessData messData);
-        void updateMucList();
-        void pastText(String s);
+    public interface OnConfigurationChanged {
+        public void onConfigurationChanged();
     }
 }

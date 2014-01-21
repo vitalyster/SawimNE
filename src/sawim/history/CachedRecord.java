@@ -1,8 +1,4 @@
-
 package sawim.history;
-
-import sawim.comm.Util;
-
 
 
 public class CachedRecord {
@@ -10,7 +6,7 @@ public class CachedRecord {
     public String text;
     public String date;
     public String from;
-    public byte type; 
+    public byte type;
     private String shortText;
 
     public String getShortText() {

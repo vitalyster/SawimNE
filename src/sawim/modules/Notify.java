@@ -2,10 +2,8 @@ package sawim.modules;
 
 import android.content.Context;
 import android.os.Vibrator;
-import android.util.Log;
 import ru.sawim.General;
 import ru.sawim.SawimApplication;
-import ru.sawim.activities.SawimActivity;
 import ru.sawim.sound.SoundPlayer;
 import sawim.Options;
 import sawim.comm.Util;
@@ -51,6 +49,7 @@ public class Notify implements Runnable {
                 return Options.getBoolean(Options.OPTION_BLOG_NOTIFY);
 
             case NOTIFY_MULTIMESSAGE:
+            case NOTIFY_TYPING:
                 return false;
         }
         return true;
@@ -86,21 +85,21 @@ public class Notify implements Runnable {
     }
 
     public boolean vibrate(final int duration) {
-        if (SawimActivity.getInstance() == null) return false;
+        if (General.currentActivity == null) return false;
         final Vibrator vibrator = (Vibrator) SawimApplication.getInstance().getSystemService(Context.VIBRATOR_SERVICE);
         if (null == vibrator) {
             return false;
         }
-        //SawimApplication.getInstance().runOnUiThread(new Runnable() {
+        //SawimApplication.getSawimActivity().runOnUiThread(new Runnable() {
         //    @Override
         //    public void run() {
-                if (600 < duration) {
-                    vibrator.vibrate(pattern, -1);
-                } else if (0 < duration) {
-                    vibrator.vibrate(duration);
-                } else {
-                    vibrator.cancel();
-                }
+        if (600 < duration) {
+            vibrator.vibrate(pattern, -1);
+        } else if (0 < duration) {
+            vibrator.vibrate(duration);
+        } else {
+            vibrator.cancel();
+        }
         //    }
         //});
         return true;

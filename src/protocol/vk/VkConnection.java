@@ -1,13 +1,14 @@
 package protocol.vk;
 
-import ru.sawim.SawimApplication;
-import sawim.chat.message.PlainMessage;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import protocol.Contact;
 import protocol.Group;
+import protocol.Roster;
 import protocol.vk.api.VkApp;
-import ru.sawim.activities.SawimActivity;
+import ru.sawim.SawimApplication;
+import sawim.chat.message.PlainMessage;
 
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -21,24 +22,16 @@ import java.util.Vector;
  * @author vladimir
  */
 public class VkConnection implements Runnable {
-    private VkApp api = new VkApp(SawimActivity.getInstance());
+    private VkApp api;
     private Vk vk;
     private volatile boolean running = true;
+
     VkConnection(Vk vk) {
         this.vk = vk;
+        api = new VkApp(SawimApplication.getInstance().getApplicationContext());
     }
 
     public void login() {
-        if (!api.isLogged()) {
-            api.showLoginDialog(vk.getUserId(), vk.getPassword());
-        }
-
-        final SawimActivity a = SawimActivity.getInstance();
-        a.runOnUiThread(new Runnable() {
-            public void run() {
-                if (!api.hasAccessToken()) api.showLoginDialog(vk.getUserId(), vk.getPassword());
-            }
-        });
         new Thread(this).start();
     }
 
@@ -69,8 +62,9 @@ public class VkConnection implements Runnable {
     public boolean isConnected() {
         return running && api.isLogged() && !api.isError();
     }
-    private Vector<VkContact> to(JSONArray list) throws JSONException {
-        Vector<VkContact> cl = new Vector<VkContact>();
+
+    private Vector<Contact> to(JSONArray list) throws JSONException {
+        Vector<Contact> cl = new Vector<Contact>();
         for (int i = 0; i < list.length(); ++i) {
             JSONObject o = list.getJSONObject(i);
             String userId = "" + o.getInt("uid");
@@ -86,6 +80,7 @@ public class VkConnection implements Runnable {
         }
         return cl;
     }
+
     private Vector<Group> groups() {
         Vector<Group> groups = new Vector<Group>();
         Group g = vk.createGroup("General");
@@ -96,11 +91,21 @@ public class VkConnection implements Runnable {
 
     @Override
     public void run() {
+        vk.setConnectingProgress(0);
+        if (!api.isLogged() || !api.hasAccessToken()) {
+            //new Handler(Looper.getMainLooper()).post(new Runnable() {
+            //    public void run() {
+            api.showLoginDialog(vk.getUserId(), vk.getPassword());
+            //    }
+            //});
+        }
+        vk.setConnectingProgress(30);
         while (!api.isLogged() && !api.isError()) {
             sleep(5000);
         }
+        vk.setConnectingProgress(70);
         processContacts();
-
+        vk.setConnectingProgress(100);
         int onlineCheck = INTERVAL_ONLINE_CHECK;
         int messageCheck = INTERVAL_MESSAGE_CHECK;
         while (running) {
@@ -122,12 +127,14 @@ public class VkConnection implements Runnable {
 
     private void processContacts() {
         try {
-            Vector<VkContact> contacts = to(api.getFriends().getJSONArray("response"));
+            Vector<Contact> contacts = to(api.getFriends().getJSONArray("response"));
             Vector<Group> groups = groups();
-            vk.setContactList(groups, contacts);
-        } catch (Exception ignored) {
+            vk.setContactList(new Roster(groups, contacts), false);
+        } catch (Exception e) {
+            sawim.modules.DebugLog.panic("Vk processContacts", e);
         }
     }
+
     private void processOnlineContacts() {
         try {
             JSONArray ids = api.getOnlineFriends().getJSONArray("response");
@@ -150,6 +157,7 @@ public class VkConnection implements Runnable {
         } catch (Exception ignored) {
         }
     }
+
     private void processMessages() {
         try {
             JSONArray msgs = api.getMessages().getJSONArray("response");
