@@ -89,6 +89,7 @@ public class Icq extends Protocol {
     protected void initStatusInfo() {
         info = new StatusInfo(statusIcons, statusIconIndex, statuses);
         xstatusInfo = Icq.xstatus.getInfo();
+        clientInfo = ClientDetector.instance.get();
     }
 
     public boolean isEmpty() {
@@ -399,7 +400,6 @@ public class Icq extends Protocol {
             c.init(-1, Group.NOT_IN_GROUP, name, false);
             return c;
         } catch (Exception e) {
-
             return null;
         }
     }

@@ -1,6 +1,6 @@
 package sawim;
 
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
@@ -10,19 +10,20 @@ import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
 import sawim.comm.Util;
 import sawim.modules.Answerer;
+import sawim.modules.AutoAbsence;
 import sawim.modules.Notify;
+import sawim.util.JLocale;
 
-public class OptionsForm implements FormListener, ControlStateListener {
+public class OptionsForm implements ControlStateListener {
 
     private Forms form;
     private int currentOptionsForm;
 
-    public static final int OPTIONS_ACCOUNT = 7;
-    public static final int OPTIONS_INTERFACE = 8;
-    public static final int OPTIONS_SIGNALING = 9;
-    public static final int OPTIONS_ANTISPAM = 10;
-    public static final int OPTIONS_ANSWERER = 12;
-    public static final int OPTIONS_ABOUT = 13;
+    public static final int OPTIONS_INTERFACE = 0;
+    public static final int OPTIONS_SIGNALING = 1;
+    public static final int OPTIONS_ANTISPAM = 2;
+    public static final int OPTIONS_ANSWERER = 3;
+    public static final int OPTIONS_PRO = 4;
 
     private void setChecked(String lngStr, int optValue) {
         form.addCheckBox(optValue, lngStr, Options.getBoolean(optValue));
@@ -129,17 +130,17 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 saveOptionBoolean(Options.OPTION_USER_GROUPS);
                 //saveOptionSelector(Options.OPTION_USER_ACCOUNTS);
                 //saveOptionBoolean(Options.OPTION_CL_HIDE_OFFLINE);
-                //        saveOptionBoolean(Options.OPTION_SAVE_TEMP_CONTACT);
-                //saveOptionBoolean(Options.OPTION_SORT_UP_WITH_MSG);
+                //saveOptionBoolean(Options.OPTION_SAVE_TEMP_CONTACT);
+                saveOptionBoolean(Options.OPTION_SORT_UP_WITH_MSG);
                 saveOptionBoolean(Options.OPTION_SHOW_STATUS_LINE);
-                //saveOptionSelector(Options.OPTION_CL_SORT_BY);
-                //        saveOptionBoolean(Options.OPTION_SHOW_PLATFORM);
+                saveOptionSelector(Options.OPTION_CL_SORT_BY);
+                //saveOptionBoolean(Options.OPTION_SHOW_PLATFORM);
                 saveOptionBoolean(Options.OPTION_HISTORY);
                 saveOptionBoolean(Options.OPTION_HIDE_KEYBOARD);
+                saveOptionBoolean(Options.OPTION_SIMPLE_INPUT);
                 saveOptionInt(Options.OPTION_MAX_MSG_COUNT);
                 saveOptionBoolean(Options.OPTION_TITLE_IN_CONFERENCE);
                 saveOptionString(Options.UNAVAILABLE_NESSAGE);
-                saveOptionBoolean(Options.OPTION_SIMPLE_INPUT);
                 saveOptionBoolean(Options.OPTION_INSTANT_RECONNECTION);
                 break;
 
@@ -154,6 +155,11 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 saveOptionSelector(Options.OPTION_TYPING_MODE);
                 break;
 
+            case OPTIONS_PRO:
+                saveOptionBoolean(Options.OPTION_HIDE_ICONS_CLIENTS);
+                Options.setInt(Options.OPTION_AA_TIME, form.getSelectorValue(Options.OPTION_AA_TIME) * 5);
+                break;
+
             case OPTIONS_ANTISPAM:
                 saveOptionString(Options.OPTION_ANTISPAM_MSG);
                 saveOptionString(Options.OPTION_ANTISPAM_ANSWER);
@@ -163,26 +169,16 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 break;
         }
         Options.safeSave();
-        General.updateOptions();
-    }
-
-    public void formAction(Forms form, boolean apply) {
-        save(currentOptionsForm);
-        if (Scheme.isChangeTheme(Options.getInt(Options.OPTION_COLOR_SCHEME)))
-            ((SawimActivity) General.currentActivity).recreateActivity();
-        else
-            form.back();
+        SawimApplication.updateOptions();
     }
 
     public void select(CharSequence name, int cmd) {
         currentOptionsForm = cmd;
-        form = new Forms(SawimApplication.getContext().getString(R.string.options), this, false);
+        form = new Forms(SawimApplication.getContext().getString(R.string.options), null, false);
         form.setBackPressedListener(new Forms.OnBackPressed() {
             @Override
             public boolean back() {
                 save(currentOptionsForm);
-                if (Scheme.isChangeTheme(Options.getInt(Options.OPTION_COLOR_SCHEME)))
-                    ((SawimActivity) General.currentActivity).recreateActivity();
                 return true;
             }
         });
@@ -214,21 +210,22 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 //setChecked("hide_offline", Options.OPTION_CL_HIDE_OFFLINE);
                 //        setChecked("save_temp_contacts", Options.OPTION_SAVE_TEMP_CONTACT);
                 setChecked("show_status_line", Options.OPTION_SHOW_STATUS_LINE);
-                //    setChecked("contacts_with_msg_at_top", Options.OPTION_SORT_UP_WITH_MSG);
+                setChecked("contacts_with_msg_at_top", Options.OPTION_SORT_UP_WITH_MSG);
 
-                //createSelector("sort_by",
-                //        "sort_by_status" + "|" + "sort_by_online" + "|" + "sort_by_name",
-                //        Options.OPTION_CL_SORT_BY);
+                createSelector("sort_by",
+                        "sort_by_status" + "|" + "sort_by_online" + "|" + "sort_by_name",
+                        Options.OPTION_CL_SORT_BY);
 
                 form.addString("chat", null);
-                //		setChecked("show_platform", Options.OPTION_SHOW_PLATFORM);
+                //setChecked("show_platform", Options.OPTION_SHOW_PLATFORM);
                 setChecked(SawimApplication.getContext().getString(R.string.hide_chat_keyboard), Options.OPTION_HIDE_KEYBOARD);
+                setChecked("use_simple_input", Options.OPTION_SIMPLE_INPUT);
                 setChecked("use_history", Options.OPTION_HISTORY);
                 loadOptionInt(Options.OPTION_MAX_MSG_COUNT, "max_message_count", "10|50|100|250|500|1000");
 
                 setChecked("title_in_conference", Options.OPTION_TITLE_IN_CONFERENCE);
                 loadOptionString(Options.UNAVAILABLE_NESSAGE, "post_outputs");
-                setChecked("use_simple_input", Options.OPTION_SIMPLE_INPUT);
+                form.addString("options_network", null);
                 setChecked(SawimApplication.getContext().getString(R.string.instant_reconnection), Options.OPTION_INSTANT_RECONNECTION);
                 break;
 
@@ -260,6 +257,12 @@ public class OptionsForm implements FormListener, ControlStateListener {
                 loadOptionString(Options.OPTION_ANTISPAM_ANSWER, "antispam_answer");
                 loadOptionString(Options.OPTION_ANTISPAM_HELLO, "antispam_hello");
                 loadOptionString(Options.OPTION_ANTISPAM_KEYWORDS, "antispam_keywords");
+                break;
+
+            case OPTIONS_PRO:
+                setChecked_(SawimApplication.getContext().getString(R.string.hide_icons_clients), Options.OPTION_HIDE_ICONS_CLIENTS);
+                form.addSelector(Options.OPTION_AA_TIME, SawimApplication.getContext().getString(R.string.absence)
+                        + " " + JLocale.getString("after_time"), "off" + "|5 |10 |15 ", Options.getInt(Options.OPTION_AA_TIME) / 5);
                 break;
 
             case OPTIONS_ANSWERER:

@@ -2,7 +2,6 @@ package protocol;
 
 import DrawControls.icons.Icon;
 import protocol.xmpp.XmppContact;
-import ru.sawim.General;
 import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import sawim.FileTransfer;
@@ -33,6 +32,7 @@ import java.util.Vector;
 abstract public class Protocol {
     private static final int RECONNECT_COUNT = 20;
     private final Object rosterLockObject = new Object();
+    public ClientInfo clientInfo;
     protected Roster roster = new Roster();
     protected StatusInfo info;
     protected XStatusInfo xstatusInfo;
@@ -81,11 +81,6 @@ abstract public class Protocol {
         String rawUin = StringConvertor.notNull(account.userId);
         if (!StringConvertor.isEmpty(rawUin)) {
             byte type = account.protocolType;
-    /*        if ((Profile.PROTOCOL_VK == type)
-                    && (0 < Util.strToIntDef(rawUin, 0))) {
-                rawUin = "id" + rawUin;
-                account.userId = rawUin;
-            }*/
             String domain = getDefaultDomain(type);
             if ((null != domain) && (-1 == rawUin.indexOf('@'))) {
                 rawUin += domain;
@@ -118,8 +113,6 @@ abstract public class Protocol {
                 return "@livejournal.com";
             case Profile.PROTOCOL_YANDEX:
                 return "@ya.ru";
-            //        case Profile.PROTOCOL_VK:
-            //            return "@vk.com";
             case Profile.PROTOCOL_QIP:
                 return "@qip.ru";
             case Profile.PROTOCOL_ODNOKLASSNIKI:
@@ -163,11 +156,11 @@ abstract public class Protocol {
         }
     }
 
-    public final void setContactList(Vector<Group> groups, Vector<Contact> contacts) {
-        setContactList(new Roster(groups, contacts), false);
+    public final void setRoster(Vector<Group> groups, Vector<Contact> contacts) {
+        setRoster(new Roster(groups, contacts), false);
     }
 
-    public final void setContactList(Roster roster, boolean needSave) {
+    public final void setRoster(Roster roster, boolean needSave) {
         Roster oldRoster;
         synchronized (rosterLockObject) {
             oldRoster = this.roster;
@@ -269,6 +262,7 @@ abstract public class Protocol {
 
     public final void safeLoad() {
         if ("".equals(getUserId())) {
+            setRoster(new Roster(), false);
             return;
         }
         if (isConnected()) {
@@ -280,7 +274,7 @@ abstract public class Protocol {
             }
         } catch (Exception e) {
             DebugLog.panic("roster load", e);
-            setContactList(new Vector(), new Vector());
+            setRoster(new Roster(), false);
         }
     }
 
@@ -327,7 +321,7 @@ abstract public class Protocol {
             buf = cl.getRecord(1);
             bais = new ByteArrayInputStream(buf);
             dis = new DataInputStream(bais);
-            if (!dis.readUTF().equals(General.VERSION)) {
+            if (!dis.readUTF().equals(SawimApplication.VERSION)) {
                 throw new Exception();
             }
             loadProtocolData(cl.getRecord(2));
@@ -358,7 +352,7 @@ abstract public class Protocol {
         } finally {
             cl.closeRecordStore();
         }
-        setContactList(roster, false);
+        setRoster(roster, false);
     }
 
     private void save(RecordStore cl) throws Exception {
@@ -367,7 +361,7 @@ abstract public class Protocol {
         byte[] buf;
         baos = new ByteArrayOutputStream();
         dos = new DataOutputStream(baos);
-        dos.writeUTF(General.VERSION);
+        dos.writeUTF(SawimApplication.VERSION);
         buf = baos.toByteArray();
         cl.addRecord(buf, 0, buf.length);
         baos.reset();
@@ -446,6 +440,7 @@ abstract public class Protocol {
             return;
         }
         removeLocalContact(contact);
+        RosterHelper.getInstance().updateRoster();
     }
 
     abstract protected void s_renameContact(Contact contact, String name);
@@ -669,6 +664,7 @@ abstract public class Protocol {
         setLastStatusChangeTime();
         if (isConnected()) {
             s_updateOnlineStatus();
+            RosterHelper.getInstance().updateBarProtocols();
             RosterHelper.getInstance().updateProgressBar();
         }
     }
@@ -703,24 +699,20 @@ abstract public class Protocol {
     }
 
     private void ui_removeFromAnyGroup(Contact c) {
-        Group g = getGroupById(c.getGroupId());
+        Group g = getGroup(c);
         if (null == g) {
             g = notInListGroup;
         }
-        for (int i = 0; i < roster.getGroupItems().size(); ++i) {
-            Group group = roster.getGroupItems().elementAt(i);
-            RosterHelper.getInstance().removeFromGroup(group, c);
-        }
-        //RosterHelper.getInstance().removeFromGroup(g, c);
+        RosterHelper.getInstance().removeFromGroup(this, g, c);
     }
 
     private void ui_addContactToGroup(Contact contact, Group group) {
-        ui_removeFromAnyGroup(contact);
+        RosterHelper.getInstance().removeFromGroup(this, notInListGroup, contact);
         contact.setGroup(group);
         if (null == group) {
             group = notInListGroup;
         }
-        RosterHelper.getInstance().addToGroup(group, contact);
+        RosterHelper.getInstance().updateGroup(this, group);
     }
 
     private void ui_updateGroup(final Group group) {
@@ -829,7 +821,7 @@ abstract public class Protocol {
     }
 
     private void setLastStatusChangeTime() {
-        lastStatusChangeTime = General.getCurrentGmtTime();
+        lastStatusChangeTime = SawimApplication.getCurrentGmtTime();
     }
 
     private boolean isEmptyMessage(String text) {
@@ -867,7 +859,7 @@ abstract public class Protocol {
         }
         Chat chat = getChat(contact);
         boolean isHighlight = Chat.isHighlight(message.getProcessedText(), contact.getMyName());
-        chat.addMessage(message, !silent && !message.isWakeUp(), isHighlight);
+        chat.addMessage(message, !message.isWakeUp(), isHighlight);
         if (message instanceof SystemNotice) {
             SystemNotice notice = (SystemNotice) message;
             if (SystemNotice.SYS_NOTICE_AUTHREQ == notice.getSysnoteType()) {
@@ -884,7 +876,7 @@ abstract public class Protocol {
         if (chat.typeNewMessageIcon != chat.getNewMessageIcon() || chat.isVisibleChat()) {
             chat.typeNewMessageIcon = chat.getNewMessageIcon();
             if (contact != RosterHelper.getInstance().getCurrentContact() || !chat.isVisibleChat()) {
-                SawimApplication.getInstance().updateAppIcon();
+                SawimApplication.getInstance().sendNotify(contact.getUserId(), message.getText());
             }
             if (RosterHelper.getInstance().getUpdateChatListener() != null)
                 RosterHelper.getInstance().getUpdateChatListener().updateChat(contact);
@@ -1062,7 +1054,7 @@ abstract public class Protocol {
         if (StringConvertor.isEmpty(msg)) {
             return;
         }
-        PlainMessage plainMsg = new PlainMessage(this, to, General.getCurrentGmtTime(), msg);
+        PlainMessage plainMsg = new PlainMessage(this, to, SawimApplication.getCurrentGmtTime(), msg);
         if (isConnected()) {
             if (msg.startsWith("/") && !msg.startsWith("/me ") && !msg.startsWith("/wakeup") && (to instanceof XmppContact)) {
                 boolean cmdExecuted = ((XmppContact) to).execCommand(this, msg);

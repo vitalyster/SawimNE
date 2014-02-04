@@ -15,7 +15,7 @@ import android.widget.Toast;
 import protocol.Contact;
 import protocol.Group;
 import protocol.Protocol;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.R;
 import ru.sawim.Scheme;
 import ru.sawim.models.RosterAdapter;
@@ -54,7 +54,6 @@ public class SendToView extends Fragment implements AdapterView.OnItemClickListe
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         horizontalScrollView = new IconTabPageIndicator(getActivity());
-
         ListView allListView = new ListView(getActivity());
         allListView.setCacheColorHint(0x00000000);
         allListView.setScrollingCacheEnabled(false);
@@ -119,13 +118,13 @@ public class SendToView extends Fragment implements AdapterView.OnItemClickListe
 
     private void initBar() {
         boolean isShowTabs = roster.getProtocolCount() > 1;
-        General.actionBar.setDisplayShowTitleEnabled(!isShowTabs);
-        General.actionBar.setDisplayShowHomeEnabled(!isShowTabs);
-        General.actionBar.setDisplayUseLogoEnabled(!isShowTabs);
-        General.actionBar.setDisplayHomeAsUpEnabled(!isShowTabs);
-        General.actionBar.setDisplayShowCustomEnabled(isShowTabs);
+        SawimApplication.getActionBar().setDisplayShowTitleEnabled(!isShowTabs);
+        SawimApplication.getActionBar().setDisplayShowHomeEnabled(!isShowTabs);
+        SawimApplication.getActionBar().setDisplayUseLogoEnabled(!isShowTabs);
+        SawimApplication.getActionBar().setDisplayHomeAsUpEnabled(!isShowTabs);
+        SawimApplication.getActionBar().setDisplayShowCustomEnabled(isShowTabs);
         getActivity().setTitle(R.string.app_name);
-        General.actionBar.setCustomView(horizontalScrollView);
+        SawimApplication.getActionBar().setCustomView(horizontalScrollView);
     }
 
     private void updateBarProtocols() {

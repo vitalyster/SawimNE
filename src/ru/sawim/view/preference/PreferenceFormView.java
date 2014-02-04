@@ -8,7 +8,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.inputmethod.InputMethodManager;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.R;
 import ru.sawim.activities.SawimActivity;
 import ru.sawim.models.form.Forms;
@@ -22,28 +22,16 @@ import java.util.List;
  * Time: 21:30
  * To change this template use File | Settings | File Templates.
  */
-public class PreferenceFormView extends PreferenceFragment implements Forms.OnUpdateForm {
+public class PreferenceFormView extends PreferenceFragment {
 
     public static final String TAG = "PreferenceFormView";
     PreferenceScreen rootScreen;
 
     @Override
-    public void onAttach(Activity a) {
-        super.onAttach(a);
-        Forms.getInstance().setUpdateFormListener(this);
-    }
-
-    @Override
-    public void onDetach() {
-        super.onDetach();
-        Forms.getInstance().setUpdateFormListener(null);
-    }
-
-    @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         getActivity().setTitle(Forms.getInstance().getCaption());
-
+        SawimApplication.getActionBar().setDisplayHomeAsUpEnabled(true);
         rootScreen = getPreferenceManager().createPreferenceScreen(getActivity());
         setPreferenceScreen(rootScreen);
         buildList();
@@ -51,15 +39,15 @@ public class PreferenceFormView extends PreferenceFragment implements Forms.OnUp
     }
 
     public static void show() {
-        General.currentActivity.runOnUiThread(new Runnable() {
+        SawimApplication.getCurrentActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 SawimActivity.resetBar();
-                if (General.currentActivity.getSupportFragmentManager()
+                if (SawimApplication.getCurrentActivity().getSupportFragmentManager()
                         .findFragmentById(R.id.chat_fragment) != null)
-                    General.currentActivity.setContentView(R.layout.intercalation_layout);
+                    SawimApplication.getCurrentActivity().setContentView(R.layout.intercalation_layout);
                 PreferenceFormView newFragment = new PreferenceFormView();
-                FragmentTransaction transaction = General.currentActivity.getSupportFragmentManager().beginTransaction();
+                FragmentTransaction transaction = SawimApplication.getCurrentActivity().getSupportFragmentManager().beginTransaction();
                 transaction.replace(R.id.fragment_container, newFragment, PreferenceFormView.TAG);
                 transaction.addToBackStack(null);
                 transaction.commitAllowingStateLoss();
@@ -67,34 +55,9 @@ public class PreferenceFormView extends PreferenceFragment implements Forms.OnUp
         });
     }
 
-    @Override
-    public void updateForm() {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                buildList();
-            }
-        });
-    }
-
-    @Override
-    public void back() {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (General.currentActivity.getSupportFragmentManager()
-                        .findFragmentById(R.id.chat_fragment) != null)
-                    ((SawimActivity) General.currentActivity).recreateActivity();
-                else
-                    getFragmentManager().popBackStack();
-                hideKeyboard();
-            }
-        });
-    }
-
     private void hideKeyboard() {
-        if (General.currentActivity.getCurrentFocus() != null)
-            ((InputMethodManager) General.currentActivity.getSystemService("input_method")).hideSoftInputFromWindow(General.currentActivity.getCurrentFocus().getWindowToken(), 0);
+        if (SawimApplication.getCurrentActivity().getCurrentFocus() != null)
+            ((InputMethodManager) SawimApplication.getCurrentActivity().getSystemService("input_method")).hideSoftInputFromWindow(SawimApplication.getCurrentActivity().getCurrentFocus().getWindowToken(), 0);
     }
 
     public boolean hasBack() {
@@ -157,6 +120,7 @@ public class PreferenceFormView extends PreferenceFragment implements Forms.OnUp
                 listPreference.setTitle(getText(c));
                 listPreference.setEntries(c.items);
                 listPreference.setEntryValues(c.items);
+                listPreference.setSummary(c.items[c.current]);
                 listPreference.setValueIndex(c.current);
                 listPreference.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                     @Override
@@ -201,8 +165,8 @@ public class PreferenceFormView extends PreferenceFragment implements Forms.OnUp
                         seekBarPreference.setTitleTextSize(c.level);
                         seekBarPreference.setTitleText(c.description + "(" + c.level + ")");
                         Forms.getInstance().controlUpdated(c);
-                        if (General.getInstance().getConfigurationChanged() != null)
-                            General.getInstance().getConfigurationChanged().onConfigurationChanged();
+                        if (SawimApplication.getInstance().getConfigurationChanged() != null)
+                            SawimApplication.getInstance().getConfigurationChanged().onConfigurationChanged();
                         return true;
                     }
                 });

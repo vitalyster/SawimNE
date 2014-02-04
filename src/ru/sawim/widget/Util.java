@@ -11,7 +11,7 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.LinearLayout;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
 
 /**
@@ -26,7 +26,7 @@ public class Util {
     public static Bitmap avatarBitmap(byte[] buffer) {
         if (buffer == null) return null;
         DisplayMetrics metrics = new DisplayMetrics();
-        General.currentActivity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        SawimApplication.getCurrentActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
         float scaleWidth = metrics.scaledDensity;
         float scaleHeight = metrics.scaledDensity;
 
@@ -63,10 +63,18 @@ public class Util {
         return background;
     }
 
+    public static int getStatusBarHeight(Context context) {
+        int result = 0;
+        int resourceId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            result = context.getResources().getDimensionPixelSize(resourceId);
+        }
+        return result;
+    }
+
     public static int dipToPixels(Context context, int dipValue) {
         Resources r = context.getResources();
-        int px = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-                dipValue, r.getDisplayMetrics());
+        int px = (int) (dipValue * r.getDisplayMetrics().density);
         return px;
     }
 

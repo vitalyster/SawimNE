@@ -6,7 +6,7 @@ import android.support.v4.app.FragmentTransaction;
 import android.view.*;
 import android.widget.AdapterView;
 import android.widget.ListView;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.R;
 import ru.sawim.Scheme;
 import ru.sawim.activities.SawimActivity;
@@ -39,7 +39,7 @@ public class VirtualListView extends SawimFragment implements VirtualList.OnVirt
     @Override
     public void onDetach() {
         super.onDetach();
-        list.setVirtualListListener(null);
+        list.clearAll();
         adapter = null;
     }
 
@@ -100,11 +100,11 @@ public class VirtualListView extends SawimFragment implements VirtualList.OnVirt
 
     public static void show() {
         SawimActivity.resetBar();
-        if (General.currentActivity.getSupportFragmentManager()
+        if (SawimApplication.getCurrentActivity().getSupportFragmentManager()
                 .findFragmentById(R.id.chat_fragment) != null)
-            General.currentActivity.setContentView(R.layout.intercalation_layout);
+            SawimApplication.getCurrentActivity().setContentView(R.layout.intercalation_layout);
         VirtualListView newFragment = new VirtualListView();
-        FragmentTransaction transaction = General.currentActivity.getSupportFragmentManager().beginTransaction();
+        FragmentTransaction transaction = SawimApplication.getCurrentActivity().getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.fragment_container, newFragment, VirtualListView.TAG);
         transaction.addToBackStack(null);
         transaction.commit();
@@ -112,7 +112,7 @@ public class VirtualListView extends SawimFragment implements VirtualList.OnVirt
 
     @Override
     public void update() {
-        General.currentActivity.runOnUiThread(new Runnable() {
+        SawimApplication.getCurrentActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 adapter.refreshList(list.getModel().elements);
@@ -123,12 +123,12 @@ public class VirtualListView extends SawimFragment implements VirtualList.OnVirt
 
     @Override
     public void back() {
-        if (General.currentActivity.getSupportFragmentManager()
+        if (SawimApplication.getCurrentActivity().getSupportFragmentManager()
                 .findFragmentById(R.id.chat_fragment) != null)
-            ((SawimActivity) General.currentActivity).recreateActivity();
+            ((SawimActivity) SawimApplication.getCurrentActivity()).recreateActivity();
         else
-            General.currentActivity.getSupportFragmentManager().popBackStack();
-        General.currentActivity.supportInvalidateOptionsMenu();
+            SawimApplication.getCurrentActivity().getSupportFragmentManager().popBackStack();
+        SawimApplication.getCurrentActivity().supportInvalidateOptionsMenu();
     }
 
     public boolean hasBack() {
@@ -154,7 +154,7 @@ public class VirtualListView extends SawimFragment implements VirtualList.OnVirt
 
     @Override
     public void setCurrentItemIndex(final int i, final boolean isSelected) {
-        General.currentActivity.runOnUiThread(new Runnable() {
+        SawimApplication.getCurrentActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 if (isSelected)

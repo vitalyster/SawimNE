@@ -5,7 +5,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.widget.Toast;
 import protocol.*;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import ru.sawim.models.form.FormListener;
@@ -45,6 +45,7 @@ public final class Xmpp extends Protocol implements FormListener {
         final int[] statusIconIndex = {1, 0, 2, 0, -1, -1, -1, -1, -1, 2, -1, 3, -1, -1, 1};
         info = new StatusInfo(icons, statusIconIndex, statuses);
         xstatusInfo = Xmpp.xStatus.getInfo();
+        clientInfo = XmppClient.get();
     }
 
     private static final byte[] statuses = {
@@ -265,8 +266,6 @@ public final class Xmpp extends Protocol implements FormListener {
 
     void setConfContactStatus(XmppServiceContact conf, String resource, byte status, String statusText, int role, int priorityA, String roleText) {
         conf.__setStatus(resource, role, priorityA, status, statusText, roleText);
-        if (RosterHelper.getInstance().getUpdateChatListener() != null)
-            RosterHelper.getInstance().getUpdateChatListener().updateMucList();
     }
 
     void setContactStatus(XmppContact c, String resource, byte status, String text, int priority) {
@@ -555,7 +554,7 @@ public final class Xmpp extends Protocol implements FormListener {
                         sendMessage(contact, box.getString(), true);
                     }
                 });
-                textbox.show(General.currentActivity.getSupportFragmentManager(), "title_conf");
+                textbox.show(SawimApplication.getCurrentActivity().getSupportFragmentManager(), "title_conf");
                 break;
 
             case ContactMenu.CONFERENCE_CONNECT:
@@ -596,7 +595,6 @@ public final class Xmpp extends Protocol implements FormListener {
 
             case ContactMenu.CONFERENCE_DISCONNECT:
                 leave((XmppServiceContact) c);
-                RosterHelper.getInstance().updateRoster();
                 break;
 
             case ContactMenu.CONFERENCE_ADD:
@@ -642,7 +640,7 @@ public final class Xmpp extends Protocol implements FormListener {
                 selected = i;
             }
         }
-        AlertDialog.Builder builder = new AlertDialog.Builder(General.currentActivity);
+        AlertDialog.Builder builder = new AlertDialog.Builder(SawimApplication.getCurrentActivity());
         builder.setCancelable(true);
         builder.setTitle(c.getName());
         builder.setSingleChoiceItems(Util.vectorToArray(items), selected, new DialogInterface.OnClickListener() {

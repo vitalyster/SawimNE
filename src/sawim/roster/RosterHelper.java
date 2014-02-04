@@ -8,6 +8,7 @@ import protocol.icq.Icq;
 import protocol.mrim.Mrim;
 import protocol.xmpp.Xmpp;
 import ru.sawim.SawimApplication;
+import ru.sawim.SawimNotification;
 import sawim.FileTransfer;
 import sawim.Options;
 import sawim.comm.StringConvertor;
@@ -18,6 +19,10 @@ import java.util.List;
 import java.util.Vector;
 
 public final class RosterHelper {
+
+    final static public int SORT_BY_STATUS = 0;
+    final static public int SORT_BY_ONLINE = 1;
+    final static public int SORT_BY_NAME   = 2;
 
     public static final int ALL_CONTACTS = 0;
     public static final int ONLINE_CONTACTS = 1;
@@ -136,7 +141,6 @@ public final class RosterHelper {
             case Profile.PROTOCOL_FACEBOOK:
             case Profile.PROTOCOL_LJ:
             case Profile.PROTOCOL_YANDEX:
-                //        case Profile.PROTOCOL_VK:
             case Profile.PROTOCOL_QIP:
             case Profile.PROTOCOL_ODNOKLASSNIKI:
                 return Profile.PROTOCOL_JABBER;
@@ -179,7 +183,7 @@ public final class RosterHelper {
         int count = getProtocolCount();
         for (int i = 0; i < count; ++i) {
             Protocol p = getProtocol(i);
-            if (p.getProfile() == profile) {
+            if (p.getProfile().protocolType == profile.protocolType) {
                 return p;
             }
         }
@@ -250,6 +254,12 @@ public final class RosterHelper {
                 p.connect();
             }
         }
+    }
+
+    public void setStatus() {
+        Protocol p = getCurrentProtocol();
+        p.setStatus((p.isConnected() || p.isConnecting())
+                ? StatusInfo.STATUS_OFFLINE : StatusInfo.STATUS_ONLINE, "");
     }
 
     public void addTransfer(FileTransfer ft) {
@@ -324,7 +334,7 @@ public final class RosterHelper {
     }*/
 
     public final void markMessages(Contact contact) {
-        SawimApplication.getInstance().updateAppIcon();
+        SawimNotification.clear(SawimApplication.getContext());
         if (getUpdateChatListener() != null)
             getUpdateChatListener().updateChat(contact);
     }
@@ -459,7 +469,7 @@ public final class RosterHelper {
         return null;
     }
 
-    public void rebuildFlatItemsWG(Protocol p, List<TreeNode> drawItems) {
+    public void rebuildFlatItemsWG(Protocol p, List<TreeNode> list) {
         Vector contacts;
         Group g;
         Contact c;
@@ -473,14 +483,14 @@ public final class RosterHelper {
             g.sort();
             contactCounter = 0;
             onlineContactCounter = 0;
-            drawItems.add(g);
+            list.add(g);
             contacts = g.getContacts();
             int contactsSize = contacts.size();
             for (int contactIndex = 0; contactIndex < contactsSize; contactIndex++) {
                 c = (Contact) contacts.elementAt(contactIndex);
                 if (all || c.isVisibleInContactList()/* || (c == selectedItem)*/) {
                     if (g.isExpanded()) {
-                        drawItems.add(c);
+                        list.add(c);
                     }
                     contactCounter++;
                 }
@@ -488,14 +498,14 @@ public final class RosterHelper {
                     ++onlineContactCounter;
             }
             if (hideOffline && (0 == contactCounter)) {
-                drawItems.remove(drawItems.size() - 1);
+                list.remove(list.size() - 1);
             }
             g.updateGroupData(contactsSize, onlineContactCounter);
         }
 
         g = p.getNotInListGroup();
         g.sort();
-        drawItems.add(g);
+        list.add(g);
         contacts = g.getContacts();
         contactCounter = 0;
         onlineContactCounter = 0;
@@ -504,7 +514,7 @@ public final class RosterHelper {
             c = (Contact) contacts.elementAt(contactIndex);
             if (all || c.isVisibleInContactList()/* || (c == selectedItem)*/) {
                 if (g.isExpanded()) {
-                    drawItems.add(c);
+                    list.add(c);
                 }
                 contactCounter++;
             }
@@ -512,12 +522,12 @@ public final class RosterHelper {
                 ++onlineContactCounter;
         }
         if (0 == contactCounter) {
-            drawItems.remove(drawItems.size() - 1);
+            list.remove(list.size() - 1);
         }
         g.updateGroupData(contactsSize, onlineContactCounter);
     }
 
-    public void rebuildFlatItemsWOG(Protocol p, List<TreeNode> drawItems) {
+    public void rebuildFlatItemsWOG(Protocol p, List<TreeNode> list) {
         boolean all = !hideOffline;
         Contact c;
         Vector contacts = p.getContactItems();
@@ -525,7 +535,7 @@ public final class RosterHelper {
         for (int contactIndex = 0; contactIndex < contacts.size(); ++contactIndex) {
             c = (Contact) contacts.elementAt(contactIndex);
             if (all || c.isVisibleInContactList()/* || (c == selectedItem)*/) {
-                drawItems.add(c);
+                list.add(c);
             }
         }
     }
@@ -557,9 +567,10 @@ public final class RosterHelper {
         }
     }
 
-    public void removeFromGroup(Group g, Contact c) {
+    public void removeFromGroup(Protocol protocol, Group g, Contact c) {
+        if (g == null) return;
         if (g.getContacts().removeElement(c))
-            g.updateGroupData();
+            updateGroup(protocol, g);
     }
 
     public void addToGroup(Group group, Contact contact) {
@@ -574,6 +585,8 @@ public final class RosterHelper {
     public String getStatusMessage(Contact contact) {
         String message = "";
         Protocol protocol = getCurrentProtocol();
+        if (getCurrPage() == RosterHelper.ACTIVE_CONTACTS)
+            protocol = contact.getProtocol();
         if (protocol == null || contact == null) return "";
         if (XStatusInfo.XSTATUS_NONE != contact.getXStatusIndex()) {
             message = contact.getXStatusText();

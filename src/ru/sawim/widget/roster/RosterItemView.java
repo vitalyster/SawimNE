@@ -7,10 +7,8 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.text.TextPaint;
 import android.text.TextUtils;
-import android.util.TypedValue;
 import android.view.View;
-import ru.sawim.General;
-import ru.sawim.SawimResources;
+import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
 import ru.sawim.widget.Util;
 
@@ -59,6 +57,7 @@ public class RosterItemView extends View {
         if (textPaint == null) {
             textPaint = new TextPaint();
             paintDivider = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paintDivider.setStyle(Paint.Style.STROKE);
         }
         textPaint.setAntiAlias(true);
     }
@@ -76,16 +75,17 @@ public class RosterItemView extends View {
         itemThirdImage = null;
         itemFourthImage = null;
         itemFifthImage = null;
+        itemNameFont = null;
     }
 
     public void repaint() {
-        setTextSize(General.getFontSize());
+        setTextSize(SawimApplication.getFontSize());
         requestLayout();
         invalidate();
     }
 
     private void setTextSize(int size) {
-        textPaint.setTextSize(size * General.getResources(getContext()).getDisplayMetrics().scaledDensity);
+        textPaint.setTextSize(size * SawimApplication.getInstance().getResources().getDisplayMetrics().scaledDensity);
     }
 
     @Override
@@ -183,13 +183,13 @@ public class RosterItemView extends View {
             canvas.drawBitmap(itemThirdImage, thirdImageX, thirdImageY, null);
         if (itemName != null) {
             textPaint.setColor(itemNameColor);
-            setTextSize(General.getFontSize());
+            setTextSize(SawimApplication.getFontSize());
             textPaint.setTypeface(itemNameFont);
             canvas.drawText(TextUtils.ellipsize(itemName, textPaint, fifthImageX - textX, TextUtils.TruncateAt.END).toString(), textX, lineOneY, textPaint);
         }
         if (itemDesc != null) {
             textPaint.setColor(itemDescColor);
-            setTextSize(General.getFontSize() - 2);
+            setTextSize(SawimApplication.getFontSize() - 2);
             textPaint.setTypeface(Typeface.DEFAULT);
             canvas.drawText(TextUtils.ellipsize(itemDesc, textPaint, fifthImageX - textX, TextUtils.TruncateAt.END).toString(), textX, lineTwoY, textPaint);
         }
@@ -200,9 +200,9 @@ public class RosterItemView extends View {
 
         boolean isLayer = itemName == null && itemDesc != null;
         if (isShowDivider) {
-            paintDivider.setStrokeWidth((isLayer ? 4 : 1) * General.getResources(getContext()).getDisplayMetrics().scaledDensity);
             paintDivider.setColor(Scheme.isBlack() ? Scheme.DIVIDER_BLACK : Scheme.DIVIDER_LIGHT);
-            canvas.drawLine(getPaddingLeft(), getScrollY() + getHeight(), getWidth() - getPaddingRight(), getScrollY() + getHeight(), paintDivider);
+            paintDivider.setStrokeWidth((int) ((isLayer ? 4 : 2) * getResources().getDisplayMetrics().density + 0.5f));
+            canvas.drawLine(getPaddingLeft(), getScrollY() + getMeasuredHeight(), getWidth() - getPaddingRight(), getScrollY() + getMeasuredHeight(), paintDivider);
         }
     }
 }

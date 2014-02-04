@@ -1,5 +1,7 @@
 package protocol.vk;
 
+import android.os.Handler;
+import android.os.Looper;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -28,7 +30,7 @@ public class VkConnection implements Runnable {
 
     VkConnection(Vk vk) {
         this.vk = vk;
-        api = new VkApp(SawimApplication.getInstance().getApplicationContext());
+        api = new VkApp(SawimApplication.getContext());
     }
 
     public void login() {
@@ -92,13 +94,11 @@ public class VkConnection implements Runnable {
     @Override
     public void run() {
         vk.setConnectingProgress(0);
-        if (!api.isLogged() || !api.hasAccessToken()) {
-            //new Handler(Looper.getMainLooper()).post(new Runnable() {
-            //    public void run() {
+        if (!api.isLogged()) {
             api.showLoginDialog(vk.getUserId(), vk.getPassword());
-            //    }
-            //});
         }
+        if (!api.hasAccessToken()) api.showLoginDialog(vk.getUserId(), vk.getPassword());
+
         vk.setConnectingProgress(30);
         while (!api.isLogged() && !api.isError()) {
             sleep(5000);
@@ -129,7 +129,7 @@ public class VkConnection implements Runnable {
         try {
             Vector<Contact> contacts = to(api.getFriends().getJSONArray("response"));
             Vector<Group> groups = groups();
-            vk.setContactList(new Roster(groups, contacts), false);
+            vk.setRoster(new Roster(groups, contacts), false);
         } catch (Exception e) {
             sawim.modules.DebugLog.panic("Vk processContacts", e);
         }

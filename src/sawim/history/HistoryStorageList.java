@@ -6,7 +6,7 @@ import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
@@ -126,7 +126,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
 
     private void clearCache() {
         cachedRecords.clear();
-        General.gc();
+        SawimApplication.gc();
     }
 
     protected void onCursorMove(int index) {
@@ -154,7 +154,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
                 items[0] = JLocale.getString("currect_contact");
                 items[1] = JLocale.getString("all_contact_except_this");
                 items[2] = JLocale.getString("all_contacts");
-                AlertDialog.Builder builder = new AlertDialog.Builder(General.currentActivity);
+                AlertDialog.Builder builder = new AlertDialog.Builder(SawimApplication.getCurrentActivity());
                 builder.setCancelable(true);
                 builder.setTitle(JLocale.getString("history"));
                 builder.setItems(items, new DialogInterface.OnClickListener() {
@@ -164,6 +164,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
                             case 0:
                                 history.removeHistory();
                                 clearCache();
+                                allMsg.back();
                                 break;
                             case 1:
                                 history.clearAll(true);
@@ -171,6 +172,7 @@ public final class HistoryStorageList implements Runnable, FormListener {
                             case 2:
                                 history.clearAll(false);
                                 clearCache();
+                                allMsg.back();
                                 break;
                         }
                     }
@@ -188,11 +190,12 @@ public final class HistoryStorageList implements Runnable, FormListener {
 
             case MENU_INFO:
                 RecordStore rs = history.getRS();
+                if (rs == null) break;
                 try {
                     String sb = JLocale.getString("hist_cur") + ": " + getSize() + "\n"
                             + JLocale.getString("hist_size") + ": " + (rs.getSize() / 1024) + "\n"
                             + JLocale.getString("hist_avail") + ": " + (rs.getSizeAvailable() / 1024) + "\n";
-                    Toast.makeText(General.currentActivity, sb, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(SawimApplication.getCurrentActivity(), sb, Toast.LENGTH_SHORT).show();
                 } catch (Exception ignored) {
                 }
                 break;

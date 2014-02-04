@@ -4,7 +4,7 @@ import android.util.Log;
 import protocol.Contact;
 import protocol.Protocol;
 import protocol.net.TcpSocket;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.models.form.FormListener;
 import ru.sawim.models.form.Forms;
 import ru.sawim.view.FileProgressView;
@@ -12,7 +12,6 @@ import sawim.chat.Chat;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 import sawim.modules.DebugLog;
-import sawim.modules.fs.FileBrowser;
 import sawim.modules.fs.FileBrowserListener;
 import sawim.modules.fs.FileSystem;
 import sawim.modules.fs.JSR75FileSystem;
@@ -27,8 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public final class FileTransfer implements FileBrowserListener,
-        PhotoListener, Runnable, FormListener {
+public final class FileTransfer implements FileBrowserListener, PhotoListener, Runnable, FormListener {
 
     private static final int descriptionField = 1000;
     private static final int transferMode = 1001;
@@ -96,13 +94,10 @@ public final class FileTransfer implements FileBrowserListener,
             return;
         }
         sawim.modules.DebugLog.panic("show file browser");
-        FileBrowser fsBrowser = new FileBrowser(false);
-        fsBrowser.setListener(this);
-        fsBrowser.activate();
     }
 
     public void startPhotoTransfer() {
-        ExternalApi.instance.setActivity(General.currentActivity);
+        ExternalApi.instance.setActivity(SawimApplication.getCurrentActivity());
         ExternalApi.instance.startCamera(this, 1024, 768);
     }
 
@@ -115,8 +110,14 @@ public final class FileTransfer implements FileBrowserListener,
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
+        byte[] image = null;
+
+        if ((fileSize < MAX_IMAGE_SIZE) && isImageFile()) {
+            image = FileSystem.getInstance().getFileContent(filename);
+        }
         setData(in, fileSize);
         askForNameDesc();
+        showPreview(image);
         /*} catch (Exception e) {
             closeFile();
             handleException(new SawimException(191, 6));
@@ -148,16 +149,13 @@ public final class FileTransfer implements FileBrowserListener,
 
     public void processPhoto(final byte[] data) {
         setData(new ByteArrayInputStream(data), data.length);
-        String timestamp = Util.getLocalDateString(General.getCurrentGmtTime(), false);
+        String timestamp = Util.getLocalDateString(SawimApplication.getCurrentGmtTime(), false);
         String photoName = "photo-"
                 + timestamp.replace('.', '-').replace(' ', '-')
                 + ".jpg";
         setFileName(photoName);
         askForNameDesc();
         showPreview(data);
-    }
-
-    public void onDirectorySelect(String s0) {
     }
 
     private void askForNameDesc() {
@@ -268,11 +266,11 @@ public final class FileTransfer implements FileBrowserListener,
         try {
             closeFile();
             RosterHelper.getInstance().removeTransfer(false);
-            General.gc();
+            SawimApplication.gc();
         } catch (Exception ignored) {
         }
         name_Desc.back();
-        if (isFinish) General.currentActivity.finish();
+        if (isFinish) SawimApplication.getCurrentActivity().finish();
         fileProgressView = null;
     }
 
@@ -302,6 +300,7 @@ public final class FileTransfer implements FileBrowserListener,
     }
 
     private void showPreview(final byte[] image) {
+        if (image == null) return;
         new Thread(new Runnable() {
             @Override
             public void run() {

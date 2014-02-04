@@ -1,9 +1,8 @@
 package protocol.xmpp;
 
-import android.util.Log;
 import protocol.*;
 import protocol.net.ClientConnection;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import sawim.Options;
 import sawim.SawimException;
 import sawim.chat.message.PlainMessage;
@@ -237,8 +236,10 @@ public final class XmppConnection extends ClientConnection {
             write("<presence type='unavailable'><status>Logged out</status></presence>");
         } catch (Exception ignored) {
         }
-        socket.close();
-        socket = null;
+        if (socket != null) {
+            socket.close();
+            socket = null;
+        }
     }
 
     protected Protocol getProtocol() {
@@ -246,12 +247,6 @@ public final class XmppConnection extends ClientConnection {
     }
 
     private void write(String xml) throws SawimException {
-        /*byte[] data = new byte[0];
-        try {
-            data = xml.getBytes("UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            DebugLog.panic("Unsupported write Encoding", e);
-        }*/
         write(StringConvertor.stringToByteArrayUtf8(xml));
     }
 
@@ -639,7 +634,7 @@ public final class XmppConnection extends ClientConnection {
                     if (!isConnected()) {
                         return;
                     }
-                    xmpp.setContactList(roster.getGroups(), roster.mergeContacts());
+                    xmpp.setRoster(roster.getGroups(), roster.mergeContacts());
                     Contact selfContact = xmpp.getItemByUIN(xmpp.getUserId());
                     if (null != selfContact) {
                         selfContact.setBooleanValue(Contact.CONTACT_NO_AUTH, false);
@@ -810,14 +805,14 @@ public final class XmppConnection extends ClientConnection {
                     }
                     return;
                 }
-                String platform = Util.xmlEscape(General.PHONE);
+                String platform = Util.xmlEscape(SawimApplication.PHONE);
                 if (IQ_TYPE_GET == iqType) {
                     putPacketIntoQueue("<iq type='result' to='"
                             + Util.xmlEscape(from) + "' id='" + Util.xmlEscape(id) + "'>"
                             + "<query xmlns='jabber:iq:version'><name>"
-                            + Util.xmlEscape(General.NAME)
+                            + Util.xmlEscape(SawimApplication.NAME)
                             + "</name><version>"
-                            + Util.xmlEscape(General.VERSION)
+                            + Util.xmlEscape(SawimApplication.VERSION)
                             + "</version><os>"
                             + platform
                             + "</os></query></iq>");
@@ -832,7 +827,7 @@ public final class XmppConnection extends ClientConnection {
                     String jid = Jid.isConference(from) ? from : Jid.getBareJid(from);
                     //MagicEye.addAction(xmpp, jid, "last_activity_request");
 
-                    long time = General.getCurrentGmtTime() - xmpp.getLastStatusChangeTime();
+                    long time = SawimApplication.getCurrentGmtTime() - xmpp.getLastStatusChangeTime();
                     putPacketIntoQueue("<iq type='result' to='" + Util.xmlEscape(from)
                             + "' id='" + Util.xmlEscape(id) + "'>"
                             + "<query xmlns='jabber:iq:last' seconds='"
@@ -868,7 +863,7 @@ public final class XmppConnection extends ClientConnection {
                     + "<time xmlns='urn:xmpp:time'><tzo>"
                     + (0 <= gmtOffset ? "+" : "-") + Util.makeTwo(Math.abs(gmtOffset)) + ":00"
                     + "</tzo><utc>"
-                    + Util.getUtcDateString(General.getCurrentGmtTime())
+                    + Util.getUtcDateString(SawimApplication.getCurrentGmtTime())
                     + "</utc></time></iq>");
             return;
         } else if (("p" + "ing").equals(queryName)) {
@@ -1240,7 +1235,7 @@ public final class XmppConnection extends ClientConnection {
                 if (null != realJid) {
                     conf.setRealJid(fromRes, Jid.getBareJid(realJid));
                 }
-                contact.setClient(fromRes);
+                contact.setClient(fromRes, x.getFirstNodeAttribute("c", S_NODE));
                 if (303 == code) {
                     conf.addPresence(getXmpp(), fromRes, ": " + JLocale.getString("change_nick") + " " + StringConvertor.notNull(newNick));
                 }
@@ -1251,6 +1246,8 @@ public final class XmppConnection extends ClientConnection {
                 getXmpp().ui_changeContactStatus(conf);
             }
             updateConfPrivate(conf, fromRes);
+            if (RosterHelper.getInstance().getUpdateChatListener() != null)
+                RosterHelper.getInstance().getUpdateChatListener().updateMucList();
         } else {
             if (!("u" + "navailable").equals(type)) {
                 if ((XStatusInfo.XSTATUS_NONE == contact.getXStatusIndex())
@@ -1278,7 +1275,7 @@ public final class XmppConnection extends ClientConnection {
             getXmpp().setContactStatus(contact, fromRes, nativeStatus2StatusIndex(type), statusString, priority);
             contact.updateMainStatus(getXmpp());
             if (contact.isOnline()) {
-                contact.setClient(fromRes);
+                contact.setClient(fromRes, x.getFirstNodeAttribute("c", S_NODE));
             }
             if (contact.getUserId().equals(contact.getName())) {
                 getXmpp().renameContact(contact, getNickFromNode(x));
@@ -1606,7 +1603,7 @@ public final class XmppConnection extends ClientConnection {
 
         final String date = getDate(msg);
         final boolean isOnlineMessage = (null == date);
-        long time = isOnlineMessage ? General.getCurrentGmtTime() : Util.createGmtDate(date);
+        long time = isOnlineMessage ? SawimApplication.getCurrentGmtTime() : Util.createGmtDate(date);
         final PlainMessage message = new PlainMessage(from, getXmpp(), time, text, !isOnlineMessage);
 
         if (null == c) {
@@ -1668,7 +1665,7 @@ public final class XmppConnection extends ClientConnection {
         }
 
         String date = getDate(msg);
-        long time = (null == date) ? General.getCurrentGmtTime() : Util.createGmtDate(date);
+        long time = (null == date) ? SawimApplication.getCurrentGmtTime() : Util.createGmtDate(date);
         PlainMessage message = new PlainMessage(to, getXmpp(), time, text, false);
         if (null != nick) {
             message.setName(('@' == nick.charAt(0)) ? nick.substring(1) : nick);
@@ -2156,7 +2153,7 @@ public final class XmppConnection extends ClientConnection {
         if (contact.isConference()) {
             g = getXmpp().getOrCreateGroup(contact.getDefaultGroupName());
 
-        } else if (g.getName().equals(contact.getDefaultGroupName())) {
+        } else if (g != null && g.getName().equals(contact.getDefaultGroupName())) {
             g = null;
         }
 
@@ -2286,7 +2283,7 @@ public final class XmppConnection extends ClientConnection {
             }
             long time = conf.hasChat() ? getXmpp().getChat(conf).getLastMessageTime() : 0;
 
-            if (0 != time) xNode += "<history maxstanzas='20' seconds='" + (General.getCurrentGmtTime() - time) + "'/>";
+            if (0 != time) xNode += "<history maxstanzas='20' seconds='" + (SawimApplication.getCurrentGmtTime() - time) + "'/>";
 
             if (!StringConvertor.isEmpty(xNode)) {
                 xml += "<x xmlns='http://jabber.org/protocol/muc'>" + xNode + "</x>";
@@ -2613,7 +2610,7 @@ public final class XmppConnection extends ClientConnection {
 
     private String getVerHash(Vector features) {
         StringBuffer sb = new StringBuffer();
-        sb.append("client/phone/" + "/" + General.NAME + "<");
+        sb.append("client/phone/" + "/" + SawimApplication.NAME + "<");
         for (int i = 0; i < features.size(); ++i) {
             sb.append(features.elementAt(i)).append('<');
         }
@@ -2622,7 +2619,7 @@ public final class XmppConnection extends ClientConnection {
 
     private String getFeatures(Vector features) {
         StringBuffer sb = new StringBuffer();
-        sb.append("<identity category='client' type='phone' name='" + General.NAME + "'/>");
+        sb.append("<identity category='client' type='phone' name='" + SawimApplication.NAME + "'/>");
         for (int i = 0; i < features.size(); ++i) {
             sb.append("<feature var='").append(features.elementAt(i)).append("'/>");
         }

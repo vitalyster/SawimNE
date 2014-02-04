@@ -133,7 +133,7 @@ public class XmppServiceContact extends XmppContact {
     @Override
     public Icon getLeftIcon(Protocol p) {
         if (isConference())
-            return new Icon(StatusInfo.STATUS_ONLINE == getStatusIndex() ? SawimResources.usersIconOn : SawimResources.usersIcon);
+            return new Icon(StatusInfo.STATUS_OFFLINE == getStatusIndex() ? SawimResources.usersIcon : SawimResources.usersIconOn);
         return super.getLeftIcon(p);
     }
 
@@ -449,7 +449,7 @@ public class XmppServiceContact extends XmppContact {
         SubContact sc = (null == conf) ? null : conf.getExistSubContact(nick);
         if (null == sc) {
             setOfflineStatus();
-            setClient(null);
+            setClient(XmppClient.CLIENT_NONE, null);
         } else {
             if (subcontacts.isEmpty()) {
                 subcontacts.addElement(sc);
@@ -457,7 +457,7 @@ public class XmppServiceContact extends XmppContact {
                 subcontacts.setElementAt(sc, 0);
             }
             setStatus(sc.status, sc.statusText);
-            setClient(sc.client);
+            setClient(sc.client, null);
         }
     }
 }

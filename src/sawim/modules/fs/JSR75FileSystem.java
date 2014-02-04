@@ -1,55 +1,18 @@
 
 package sawim.modules.fs;
 
+import org.microemu.cldc.file.FileSystemFileConnection;
 import protocol.net.TcpSocket;
 import sawim.SawimException;
 
 import javax.microedition.io.Connector;
-import javax.microedition.io.file.FileConnection;
-import javax.microedition.io.file.FileSystemRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Enumeration;
-import java.util.Vector;
 
 public class JSR75FileSystem {
 
-    private FileConnection fileConnection;
-
-    public Vector getDirectoryContents(String currDir, boolean onlyDirs)
-            throws SawimException {
-
-        Vector filelist = new Vector();
-        try {
-            if (currDir.equals(FileSystem.ROOT_DIRECTORY)) {
-                Enumeration roots = FileSystemRegistry.listRoots();
-                while (roots.hasMoreElements()) {
-                    filelist.addElement(new FileNode(currDir, (String) roots.nextElement()));
-                }
-
-            } else {
-                FileConnection fileconn = (FileConnection) Connector.open(
-                        "file://" + currDir, Connector.READ);
-
-                Enumeration list = fileconn.list();
-                filelist.addElement(new FileNode(currDir, FileSystem.PARENT_DIRECTORY));
-                while (list.hasMoreElements()) {
-                    String filename = (String) list.nextElement();
-                    if (onlyDirs && !filename.endsWith("/")) {
-                        continue;
-                    }
-                    filelist.addElement(new FileNode(currDir, filename));
-                }
-                fileconn.close();
-            }
-        } catch (SecurityException e) {
-            throw new SawimException(193, 0);
-        } catch (Exception e) {
-            throw new SawimException(191, 0);
-        }
-        return filelist;
-    }
+    private FileSystemFileConnection fileConnection;
 
     public long totalSize() throws Exception {
         return fileConnection.totalSize();
@@ -57,7 +20,7 @@ public class JSR75FileSystem {
 
     public void openFile(String file) throws SawimException {
         try {
-            fileConnection = (FileConnection) Connector.open("file://" + file);
+            fileConnection = (FileSystemFileConnection) Connector.open("file://" + file);
         } catch (SecurityException e) {
             fileConnection = null;
             throw new SawimException(193, 1);
@@ -69,7 +32,7 @@ public class JSR75FileSystem {
 
     public void mkdir(String path) {
         try {
-            FileConnection fc = (FileConnection) Connector.open("file://" + path);
+            FileSystemFileConnection fc = (FileSystemFileConnection) Connector.open("file://" + path);
             try {
                 fc.mkdir();
             } finally {

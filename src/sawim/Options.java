@@ -62,6 +62,7 @@ public class Options {
     public static final int OPTION_CHAT_PRESENSEFONT_SCHEME = 92;
     public static final int OPTION_PRIVATE_STATUS = 93;
     public static final int OPTION_MAX_MSG_COUNT = 94;
+    public static final int OPTION_AA_TIME  = 106;
     public static final int OPTION_FONT_SCHEME = 107;
     public static final int OPTION_MIN_ITEM_SIZE = 110;
 
@@ -76,7 +77,8 @@ public class Options {
     public static final int OPTION_SILENT_MODE = 150;
     public static final int OPTION_BRING_UP = 151;
     public static final int OPTION_ANTISPAM_ENABLE = 158;
-    public static final int OPTION_SHOW_SOFTBAR = 167;
+    public static final int OPTION_HIDE_ICONS_CLIENTS = 160;
+    //public static final int OPTION_SHOW_SOFTBAR = 167;
     public static final int OPTION_TF_FLAGS = 169;
     public static final int OPTION_SORT_UP_WITH_MSG = 171;
     public static final int OPTION_ALARM = 176;
@@ -328,10 +330,11 @@ public class Options {
         //	setBoolean(Options.OPTION_SHOW_PLATFORM,      false);
         setBoolean(Options.OPTION_INSTANT_RECONNECTION, true);
         setInt(Options.OPTION_CL_SORT_BY, 0);
+        setBoolean(Options.OPTION_SORT_UP_WITH_MSG, true);
         setBoolean(Options.OPTION_TITLE_IN_CONFERENCE, true);
         setBoolean(Options.OPTION_CL_HIDE_OFFLINE, false);
+        setBoolean(Options.OPTION_HIDE_ICONS_CLIENTS, true);
         setBoolean(Options.OPTION_HIDE_KEYBOARD, true);
-        setBoolean(Options.OPTION_SHOW_SOFTBAR, true);
         setInt(Options.OPTION_MESS_NOTIF_MODE, 0);
         setInt(Options.OPTION_ONLINE_NOTIF_MODE, 0);
         setInt(Options.OPTION_TYPING_MODE, 0);
@@ -349,6 +352,7 @@ public class Options {
         setBoolean(Options.OPTION_HISTORY, false);
         setInt(Options.OPTION_COLOR_SCHEME, 1);
         setInt(Options.OPTION_FONT_SCHEME, 16);
+        setInt(Options.OPTION_AA_TIME, 3);
         setInt(Options.OPTION_CHAT_PRESENSEFONT_SCHEME, 0);
         int minItemSize = 15;
         setInt(Options.OPTION_MIN_ITEM_SIZE, minItemSize);
@@ -358,8 +362,7 @@ public class Options {
         setBoolean(Options.OPTION_SILENT_MODE, false);
         setBoolean(Options.OPTION_CLASSIC_CHAT, false);
         setBoolean(Options.OPTION_BRING_UP, false);
-        int time = TimeZone.getDefault().getDSTSavings() / (1000 * 60 * 60)
-                + TimeZone.getDefault().getRawOffset() / (1000 * 60 * 60);
+        int time = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60);
         setInt(Options.OPTION_GMT_OFFSET, time);
         setInt(Options.OPTION_LOCAL_OFFSET, 0);
         setBoolean(OPTION_ALARM, true);

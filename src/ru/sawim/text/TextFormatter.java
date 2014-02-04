@@ -61,7 +61,7 @@ public class TextFormatter {
             if (!isThereLinks(builder, new int[]{matcher.start(), matcher.end()})) {
                 builder.setSpan(new ImageSpan(smiles.getSmileIcon(smiles.buildSmileyToId().get(matcher.group())).getImage()),
                         matcher.start(), matcher.end(),
-                        Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
         }
         return builder;
@@ -121,7 +121,7 @@ public class TextFormatter {
             int start = m.start();
             int end = m.end();
             Hyperlink spec = new Hyperlink();
-            spec.textSpan = m.group(0);
+            spec.textSpan = s.subSequence(start, end).toString();
             spec.span = new InternalURLSpan(spec.textSpan.toString());
             spec.start = start;
             spec.end = end;

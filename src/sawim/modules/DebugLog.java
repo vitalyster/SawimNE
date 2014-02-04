@@ -3,7 +3,7 @@ package sawim.modules;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
 import ru.sawim.models.list.VirtualList;
 import ru.sawim.models.list.VirtualListItem;
@@ -114,9 +114,8 @@ public final class DebugLog {
         println("Daylight: " + tz.useDaylightTime());
         println("ID: " + tz.getID());
 
-        int time = TimeZone.getDefault().getRawOffset() / (1000 * 60 * 60);
-        int t2 = TimeZone.getDefault().getDSTSavings() / (1000 * 60 * 60);
-        println("GMT " + (t2 + time));
+        int t2 = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60);
+        println("GMT " + t2);
     }
 
     public static void dump(String comment, byte[] data) {
@@ -148,15 +147,19 @@ public final class DebugLog {
                 switch (itemMenuId) {
                     case MENU_COPY:
                         VirtualListItem item = list.getModel().elements.get(listItem);
-                        Clipboard.setClipBoardText(item.getLabel() + "\n" + item.getDescStr());
+                        Clipboard.setClipBoardText(((item.getLabel() == null) ? "" : item.getLabel() + "\n") + item.getDescStr());
                         break;
 
                     case MENU_COPY_ALL:
                         StringBuffer s = new StringBuffer();
                         List<VirtualListItem> listItems = list.getModel().elements;
                         for (int i = 0; i < listItems.size(); ++i) {
-                            s.append(listItems.get(i).getLabel()).append("\n")
-                                    .append(listItems.get(i).getDescStr()).append("\n");
+                            CharSequence label = listItems.get(i).getLabel();
+                            CharSequence descStr = listItems.get(i).getDescStr();
+                            if (label != null)
+                                s.append(label).append("\n");
+                            if (descStr != null)
+                                s.append(descStr).append("\n");
                         }
                         Clipboard.setClipBoardText(s.toString());
                         break;
@@ -196,7 +199,7 @@ public final class DebugLog {
 
     private synchronized void print(String text) {
         VirtualListItem record = model.createNewParser(true);
-        String date = Util.getLocalDateString(General.getCurrentGmtTime(), true);
+        String date = Util.getLocalDateString(SawimApplication.getCurrentGmtTime(), true);
         record.addLabel(date + ": ", Scheme.THEME_MAGIC_EYE_NUMBER,
                 Scheme.FONT_STYLE_PLAIN);
         record.addDescription(_(text), Scheme.THEME_TEXT, Scheme.FONT_STYLE_PLAIN);
@@ -207,7 +210,7 @@ public final class DebugLog {
 
     private long freeMemory() {
         for (int i = 0; i < 10; ++i) {
-            General.gc();
+            SawimApplication.gc();
         }
         return Runtime.getRuntime().freeMemory();
     }

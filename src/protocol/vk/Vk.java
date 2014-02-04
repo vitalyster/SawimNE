@@ -119,7 +119,14 @@ public class Vk extends Protocol {
 
     @Override
     protected Contact createContact(String uin, String name) {
-        VkContact c = new VkContact(Integer.parseInt(uin));
+        int id;
+        try {
+            id = Integer.parseInt(uin);
+        } catch (java.lang.NumberFormatException e) {
+            //RosterHelper.getInstance().activateWithMsg(SawimApplication.getContext().getString(R.string.enter_id));
+            return null;
+        }
+        VkContact c = new VkContact(id);
         c.setName(name);
         return c;
     }

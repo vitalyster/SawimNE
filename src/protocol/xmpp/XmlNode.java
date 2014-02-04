@@ -1,9 +1,11 @@
 package protocol.xmpp;
 
+import android.util.Log;
 import sawim.SawimException;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -134,11 +136,6 @@ public final class XmlNode {
     }
 
     private void readEscapedChar(StringBuffer out, Socket socket) throws SawimException {
-        /*try {
-            Util.xmlUnescape(new String(out.toString().getBytes("ISO8859-1"), "UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-            DebugLog.panic("Unsupported Encoding", e);
-        }*/
         StringBuffer buffer = new StringBuffer(6);
         int limit = 6;
         char ch = socket.readChar();
@@ -201,7 +198,13 @@ public final class XmlNode {
             }
             ch = socket.readChar();
         }
-        return sb.toString();
+        String s = sb.toString();
+        try {
+            s = new String(s.getBytes("ISO8859-1"), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return s;
     }
 
     private boolean parseNode(Socket socket, char ch0) throws SawimException {

@@ -1,11 +1,10 @@
 package ru.sawim.widget;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.widget.ListView;
-import ru.sawim.General;
-import ru.sawim.SawimApplication;
-import ru.sawim.Scheme;
 
 /**
  * Created with IntelliJ IDEA.
@@ -38,5 +37,12 @@ public class MyListView extends ListView {
         setAnimationCacheEnabled(false);
         setDivider(null);
         setDividerHeight(0);
+    }
+
+    public void stopScroll() {
+        onTouchEvent(
+                MotionEvent.obtain(SystemClock.uptimeMillis(),
+                        SystemClock.uptimeMillis(), MotionEvent.ACTION_CANCEL,
+                        0, 0, 0));
     }
 }

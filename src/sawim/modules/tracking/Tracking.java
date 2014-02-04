@@ -2,11 +2,12 @@ package sawim.modules.tracking;
 
 import DrawControls.icons.Icon;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 import protocol.Contact;
 import protocol.Protocol;
 import protocol.icq.Icq;
 import protocol.mrim.Mrim;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.activities.SawimActivity;
 import sawim.chat.Chat;
 import sawim.chat.message.PlainMessage;
@@ -110,7 +111,8 @@ public final class Tracking {
             track.idEvent = line.id_event;
             track.idAction = line.id_action;
             if (line.id_action == ACTION_MESSAGE_TEXT) {
-                track.valueAction = line.name;
+                Log.e("ee", ""+TrackingForm.editText);
+                track.valueAction = TrackingForm.editText;
             } else {
                 track.valueAction = "";
             }
@@ -192,7 +194,8 @@ public final class Tracking {
                 addValueToRMSRecord(rms, track.uin);
                 addValueToRMSRecord(rms, String.valueOf(track.idEvent));
                 addValueToRMSRecord(rms, String.valueOf(track.idAction));
-                addValueToRMSRecord(rms, track.valueAction);
+                if (track.valueAction != null)
+                    addValueToRMSRecord(rms, track.valueAction);
             }
             rms.closeRecordStore();
         } catch (RecordStoreException e) {
@@ -343,7 +346,7 @@ public final class Tracking {
         Chat chat_ = new Chat(protocol, item);
         switch (action) {
             case ACTION_CHAT:
-                ((SawimActivity) General.currentActivity).openChat(chat.getProtocol(), chat.getContact(), true);
+                ((SawimActivity) SawimApplication.getCurrentActivity()).openChat(chat.getProtocol(), chat.getContact(), true);
                 break;
             case ACTION_NOTICE:
                 RosterHelper.getInstance().activateWithMsg(JLocale.getString("track_form_title")
@@ -351,7 +354,7 @@ public final class Tracking {
                 break;
             case ACTION_INCHAT:
                 String notice = JLocale.getString("track_action_online");
-                PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, General.getCurrentGmtTime(), notice, true);
+                PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, SawimApplication.getCurrentGmtTime(), notice, true);
                 //plainMsg.setSendingState(Message.ICON_MSG_TRACK);
                 chat.addMyMessage(plainMsg);
                 break;
@@ -366,7 +369,7 @@ public final class Tracking {
                 if (track_prev != null) {
                     if (track_prev.idAction == ACTION_MESSAGE) {
                         String str = track.valueAction;
-                        if (str.length() != 0)
+                        if (str != null && str.length() != 0)
                             RosterHelper.getInstance().getCurrentProtocol().sendMessage(item, str, true);
                     }
                 }
@@ -385,7 +388,7 @@ public final class Tracking {
                 break;
             case ACTION_INCHAT:
                 String notice = JLocale.getString("track_action_offline");
-                PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, General.getCurrentGmtTime(), notice, true);
+                PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, SawimApplication.getCurrentGmtTime(), notice, true);
                 //plainMsg.setSendingState(Message.ICON_MSG_TRACK);
                 chat.addMyMessage(plainMsg);
                 break;
@@ -432,7 +435,7 @@ public final class Tracking {
 
         switch (action) {
             case ACTION_INCHAT:
-                PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, General.getCurrentGmtTime(), status_comm, true);
+                PlainMessage plainMsg = new PlainMessage(item.getUserId(), protocol, SawimApplication.getCurrentGmtTime(), status_comm, true);
                 //plainMsg.setSendingState(Message.ICON_MSG_TRACK);
                 chat.addMyMessage(plainMsg);
                 break;

@@ -4,7 +4,7 @@ import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import protocol.Contact;
-import ru.sawim.General;
+import ru.sawim.SawimApplication;
 import ru.sawim.Scheme;
 import ru.sawim.models.list.VirtualList;
 import ru.sawim.models.list.VirtualListItem;
@@ -101,7 +101,8 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
                         break;
 
                     case MENU_COPY:
-                        Clipboard.setClipBoardText(model.elements.get(listItem).getLabel() + "\n" + model.elements.get(listItem).getDescStr());
+                        VirtualListItem item = list.getModel().elements.get(listItem);
+                        Clipboard.setClipBoardText(((item.getLabel() == null) ? "" : item.getLabel() + "\n") + item.getDescStr());
                         break;
 
                     /*case MENU_USER_MENU:
@@ -166,7 +167,7 @@ public final class MicroBlog implements TextBoxView.TextBoxListener {
         replayTo = StringConvertor.notNull(to);
         postEditor = new TextBoxView();
         postEditor.setTextBoxListener(this);
-        postEditor.show(General.currentActivity.getSupportFragmentManager(), StringConvertor.isEmpty(replayTo) ? "message" : "reply");
+        postEditor.show(SawimApplication.getCurrentActivity().getSupportFragmentManager(), StringConvertor.isEmpty(replayTo) ? "message" : "reply");
     }
 
     public void textboxAction(TextBoxView box, boolean ok) {
