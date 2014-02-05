@@ -269,7 +269,7 @@ new_group_name=New group name
 nick=Nick
 no=No
 no_results=No results
-no_groups_available   No groups available
+no_groups_available =  No groups available
 notes=Notes
 ok=OK
 on =On
@@ -429,9 +429,9 @@ you_was_baned=You was baned
 you_was_kicked=You was kicked
 private_chat=Private chat
 voice=Voice
-devoice Devoice
-kick Kick
-ban Ban
+devoice=Devoice
+kick=Kick
+ban=Ban
 kbs=kb/s
 speed=Speed
 filetransfer=File transfer
@@ -514,7 +514,7 @@ antispam=Antispam
 antispam_msg=Question
 antispam_hello=Grant message
 antispam_answer=Right answer
-antispam_keywords Stop words list
+antispam_keywords=Stop words list
 cut_offline=Cut offline messages
 error_100=Unknown error
 error_110=Multiple logins
