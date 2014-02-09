@@ -6,6 +6,7 @@ import protocol.StatusInfo;
 import protocol.TemporaryRoster;
 import protocol.net.ClientConnection;
 import protocol.net.TcpSocket;
+import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import sawim.Options;
 import sawim.SawimException;
@@ -607,28 +608,28 @@ public final class MrimConnection extends ClientConnection {
         String domain = null;
         for (int i = 0; i < fields.length; ++i) {
             String field = fields[i];
-            if (field.equals("n" + "ickname")) {
+            if (field.equals("nickname")) {
                 userInfo.nick = in.getUcs2String();
 
-            } else if (field.equals("f" + "irstname")) {
+            } else if (field.equals("firstname")) {
                 userInfo.firstName = in.getUcs2String();
 
-            } else if (field.equals("l" + "astname")) {
+            } else if (field.equals("lastname")) {
                 userInfo.lastName = in.getUcs2String();
 
-            } else if (field.equals("l" + "ocation")) {
+            } else if (field.equals("location")) {
                 userInfo.homeAddress = in.getUcs2String();
 
-            } else if (field.equals("d" + "omain")) {
+            } else if (field.equals("domain")) {
                 domain = in.getUtf8String();
 
-            } else if (field.equals("u" + "sername")) {
+            } else if (field.equals("username")) {
                 username = in.getUtf8String();
 
-            } else if (field.equals("b" + "irthday")) {
+            } else if (field.equals("birthday")) {
                 userInfo.birthDay = in.getBirthdayString();
 
-            } else if (field.equals("s" + "e" + "x")) {
+            } else if (field.equals("sex")) {
                 byte[] gender = {0, 2, 1};
                 userInfo.gender = gender[Util.strToIntDef(in.getUtf8String(), 0) % 3];
 
@@ -766,8 +767,8 @@ public final class MrimConnection extends ClientConnection {
             }
         }
         if (hasPhones) {
-            MrimGroup phoneGroup = (MrimGroup) roster.makeGroup(JLocale.getString("phone_contacts"));
-            phoneGroup.setName(JLocale.getString("phone_contacts"));
+            MrimGroup phoneGroup = (MrimGroup) roster.makeGroup(JLocale.getString(R.string.phone_contacts));
+            phoneGroup.setName(JLocale.getString(R.string.phone_contacts));
             phoneGroup.setFlags(0);
             phoneGroup.setGroupId(MrimGroup.PHONE_CONTACTS_GROUP);
             roster.addGroup(phoneGroup);
@@ -938,14 +939,14 @@ public final class MrimConnection extends ClientConnection {
             "",
             "",
             "STATUS_AWAY",
-            "sta" + "tus_chat",
+            "status_chat",
             "",
             "",
             "",
             "",
             "",
             "",
-            "sta" + "tus_dnd",
+            "status_dnd",
             "",
             ""};
 

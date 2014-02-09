@@ -2,6 +2,7 @@ package protocol.xmpp;
 
 import protocol.*;
 import protocol.net.ClientConnection;
+import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import sawim.Options;
 import sawim.SawimException;
@@ -57,54 +58,54 @@ public final class XmppConnection extends ClientConnection {
     private SASL_ScramSha1 scramSHA1;
 
     private static final String[] statusCodes = {
-            "u" + "navailable",
+            "unavailable",
             "",
-            "a" + "way",
-            "c" + "h" + "a" + "t",
-            "",
-            "",
+            "away",
+            "chat",
             "",
             "",
             "",
-            "x" + "a",
             "",
-            "d" + "nd",
+            "",
+            "xa",
+            "",
+            "dnd",
             "",
             ""
     };
 
-    private static final String S_TEXT = "te" + "xt";
-    private static final String S_FROM = "fr" + "om";
-    private static final String S_TYPE = "ty" + "pe";
-    private static final String S_ERROR = "e" + "rror";
-    private static final String S_NONE = "n" + "o" + "ne";
-    private static final String S_NODE = "n" + "o" + "de";
-    private static final String S_NICK = "ni" + "ck";
-    private static final String S_SET = "s" + "e" + "t";
-    private static final String S_REMOVE = "r" + "emove";
-    private static final String S_RESULT = "r" + "esult";
-    private static final String S_GROUP = "g" + "roup";
-    private static final String S_ITEM = "i" + "tem";
-    private static final String S_ITEMS = "i" + "tems";
-    private static final String S_TRUE = "t" + "rue";
-    private static final String S_FALSE = "fa" + "lse";
-    private static final String S_GET = "g" + "e" + "t";
-    private static final String S_TIME = "t" + "ime";
-    private static final String S_TITLE = "t" + "itle";
-    private static final String S_CODE = "c" + "ode";
-    private static final String S_QUERY = "que" + "ry";
-    private static final String S_STATUS = "st" + "atus";
+    private static final String S_TEXT = "text";
+    private static final String S_FROM = "from";
+    private static final String S_TYPE = "type";
+    private static final String S_ERROR = "error";
+    private static final String S_NONE = "none";
+    private static final String S_NODE = "node";
+    private static final String S_NICK = "nick";
+    private static final String S_SET = "set";
+    private static final String S_REMOVE = "remove";
+    private static final String S_RESULT = "result";
+    private static final String S_GROUP = "group";
+    private static final String S_ITEM = "item";
+    private static final String S_ITEMS = "items";
+    private static final String S_TRUE = "true";
+    private static final String S_FALSE = "false";
+    private static final String S_GET = "get";
+    private static final String S_TIME = "time";
+    private static final String S_TITLE = "title";
+    private static final String S_CODE = "code";
+    private static final String S_QUERY = "query";
+    private static final String S_STATUS = "status";
     private static final String S_VCARD = "vCard";
-    private static final String S_SUBJECT = "subje" + "ct";
-    private static final String S_BODY = "b" + "ody";
-    private static final String S_URL = "u" + "r" + "l";
-    private static final String S_DESC = "d" + "es" + "c";
-    private static final String S_COMPOSING = "c" + "omposing";
-    private static final String S_ACTIVE = "ac" + "tive";
-    private static final String S_PAUSED = "p" + "aused";
-    private static final String S_CHAT = "c" + "hat";
-    private static final String S_GROUPCHAT = "groupc" + "hat";
-    private static final String S_HEADLINE = "h" + "eadline";
+    private static final String S_SUBJECT = "subject";
+    private static final String S_BODY = "body";
+    private static final String S_URL = "url";
+    private static final String S_DESC = "desc";
+    private static final String S_COMPOSING = "composing";
+    private static final String S_ACTIVE = "active";
+    private static final String S_PAUSED = "paused";
+    private static final String S_CHAT = "chat";
+    private static final String S_GROUPCHAT = "groupchat";
+    private static final String S_HEADLINE = "headline";
 
     private static final String GET_ROSTER_XML = "<iq type='get' id='roster'>"
             + "<query xmlns='jabber:iq:roster'/>"
@@ -278,7 +279,7 @@ public final class XmppConnection extends ClientConnection {
         write(getOpenStreamXml(domain));
         readXmlNode(true);
         XmlNode features = readXmlNode(true);
-        if (!features.contains("regis" + "ter")) {
+        if (!features.contains("register")) {
             return null;
         }
         write("<iq type='get' to='" + domain
@@ -298,8 +299,8 @@ public final class XmppConnection extends ClientConnection {
 
         String[] url = Util.explode(server, ':');
         String[] socketUrl = new String[3];
-        final String S_SOCKET = "s" + "ocket";
-        final String S_SSL = "ss" + "l";
+        final String S_SOCKET = "socket";
+        final String S_SSL = "ssl";
         final String S_5222 = "5222";
         if (3 == url.length) {
             socketUrl[0] = url[0];
@@ -469,7 +470,7 @@ public final class XmppConnection extends ClientConnection {
         } else if (x.is("presence")) {
             parsePresence(x);
 
-        } else if (x.is("m" + "essage")) {
+        } else if (x.is("message")) {
             parseMessage(x);
 
         } else if (x.is("stream:error")) {
@@ -626,7 +627,7 @@ public final class XmppConnection extends ClientConnection {
                         }
                         contact.setGroup(roster.getOrCreateGroup(groupName));
 
-                        String subscription = itemNode.getAttribute("subsc" + "ription");
+                        String subscription = itemNode.getAttribute("subscription");
                         contact.setBooleanValue(Contact.CONTACT_NO_AUTH, isNoAutorized(subscription));
                         roster.addContact(contact);
                     }
@@ -654,7 +655,7 @@ public final class XmppConnection extends ClientConnection {
                 } else if (IQ_TYPE_SET == iqType) {
                     while (0 < iqQuery.childrenCount()) {
                         XmlNode itemNode = iqQuery.popChildNode();
-                        String subscription = itemNode.getAttribute("subsc" + "ription");
+                        String subscription = itemNode.getAttribute("subscription");
                         String jid = itemNode.getAttribute(XmlNode.S_JID);
                         if (Jid.isConference(jid)) {
 
@@ -740,7 +741,7 @@ public final class XmppConnection extends ClientConnection {
                     XmlNode item = iqQuery.popChildNode();
                     String jid = item.getAttribute(XmlNode.S_JID);
                     String affiliation = item.getAttribute(XmlNode.S_AFFILIATION);
-                    String reasone = item.getFirstNodeValue("r" + "eason");
+                    String reasone = item.getFirstNodeValue("reason");
                     uslist.setAffiliation(affiliation);
                     uslist.addItem(reasone, jid);
                 }
@@ -760,17 +761,17 @@ public final class XmppConnection extends ClientConnection {
                 if (!isMy(from)) {
                     return;
                 }
-                XmlNode storage = iqQuery.getFirstNode("sto" + "rage", "storage:bookmarks");
+                XmlNode storage = iqQuery.getFirstNode("storage", "storage:bookmarks");
                 if (null != storage) {
                     loadBookmarks(storage);
                 } else if (null == storage) {
-                    storage = iqQuery.getFirstNode("sto" + "rage", "http://miranda-im.org/storage#notes");
+                    storage = iqQuery.getFirstNode("storage", "http://miranda-im.org/storage#notes");
                     if (null != storage) {
                         loadMirandaNotes(storage);
                     }
                 }
-                if (IQ_TYPE_RESULT == iqType && ("ge" + "tnotes").equals(id)) {
-                    storage = iqQuery.getFirstNode("sto" + "rage", "sto" + "rag" + "e:rosternotes");
+                if (IQ_TYPE_RESULT == iqType && ("getnotes").equals(id)) {
+                    storage = iqQuery.getFirstNode("storage", "storage:rosternotes");
                     if (null != storage) {
                         while (0 < storage.childrenCount()) {
                             XmlNode item = storage.popChildNode();
@@ -787,8 +788,8 @@ public final class XmppConnection extends ClientConnection {
             } else if ("jabber:iq:version".equals(xmlns)) {
                 if (IQ_TYPE_RESULT == iqType) {
                     String name = iqQuery.getFirstNodeValue(XmlNode.S_NAME);
-                    String ver = iqQuery.getFirstNodeValue("v" + "ersion");
-                    String os = iqQuery.getFirstNodeValue("o" + "s");
+                    String ver = iqQuery.getFirstNodeValue("version");
+                    String os = iqQuery.getFirstNodeValue("os");
                     name = Util.notUrls(name);
                     ver = Util.notUrls(ver);
                     os = Util.notUrls(os);
@@ -835,7 +836,7 @@ public final class XmppConnection extends ClientConnection {
                             + "'/></iq>");
                 }
                 if (IQ_TYPE_RESULT == iqType) {
-                    String time = iqQuery.getAttribute("se" + "conds");
+                    String time = iqQuery.getAttribute("seconds");
                     time = Util.secDiffToDate(Integer.parseInt(time));
                     getXmpp().addMessage(new SystemNotice(getXmpp(), (byte) -1, Jid.getBareJid(from), time));
                 }
@@ -866,15 +867,15 @@ public final class XmppConnection extends ClientConnection {
                     + Util.getUtcDateString(SawimApplication.getCurrentGmtTime())
                     + "</utc></time></iq>");
             return;
-        } else if (("p" + "ing").equals(queryName)) {
+        } else if (("ping").equals(queryName)) {
             writePacket("<iq to='" + Util.xmlEscape(from) + "' id='" + Util.xmlEscape(id) + "' type='result'/>");
             return;
 
-        } else if (("pu" + "bsub").equals(queryName)) {
+        } else if (("pubsub").equals(queryName)) {
             if (!isMy(from)) {
                 return;
             }
-            loadBookmarks(iqQuery.getFirstNodeRecursive("sto" + "rage"));
+            loadBookmarks(iqQuery.getFirstNodeRecursive("storage"));
             return;
 
         } else if (S_VCARD.equals(queryName)) {
@@ -897,7 +898,7 @@ public final class XmppConnection extends ClientConnection {
                 }
             }
 
-        } else if (("c" + "ommand").equals(queryName)) {
+        } else if (("command").equals(queryName)) {
             if (null != adhoc) {
                 adhoc.loadCommandXml(iq, id);
             }
@@ -913,9 +914,9 @@ public final class XmppConnection extends ClientConnection {
         _notes.clear();
         while (0 < storage.childrenCount()) {
             XmlNode item = storage.popChildNode();
-            String tags = item.getAttribute("ta" + "gs");
-            String title = item.getFirstNodeValue("ti" + "tle");
-            String text = item.getFirstNodeValue("te" + "xt");
+            String tags = item.getAttribute("tags");
+            String title = item.getFirstNodeValue("title");
+            String text = item.getFirstNodeValue("text");
             if (title == null) title = "";
             if (tags == null) tags = "";
             if (text == null) text = "";
@@ -1063,8 +1064,8 @@ public final class XmppConnection extends ClientConnection {
             }
             String name = item.getAttribute(XmlNode.S_NAME);
             String nick = item.getFirstNodeValue(S_NICK);
-            boolean autojoin = isTrue(item.getAttribute("au" + "tojoin"));
-            String password = item.getAttribute("passwor" + "d");
+            boolean autojoin = isTrue(item.getAttribute("autojoin"));
+            String password = item.getAttribute("password");
 
             XmppServiceContact conference = (XmppServiceContact) xmpp.createTempContact(jid, name);
             conference.setMyName(nick);
@@ -1124,7 +1125,7 @@ public final class XmppConnection extends ClientConnection {
             return;
         }
 
-        if (("subscr" + "ibe").equals(type)) {
+        if (("subscribe").equals(type)) {
             if (isAutoGateContact(from)) {
                 sendSubscribed(from);
                 requestSubscribe(from);
@@ -1136,19 +1137,19 @@ public final class XmppConnection extends ClientConnection {
             autoMoveContact(c, x);
             return;
         }
-        if (("subscr" + "ibed").equals(type)) {
+        if (("subscribed").equals(type)) {
             if (!isAutoGateContact(from)) {
                 getXmpp().setAuthResult(from, true);
             }
             autoRenameContact(getXmpp().getItemByUIN(from), x);
             return;
         }
-        if (("unsubscr" + "ibed").equals(type)) {
+        if (("unsubscribed").equals(type)) {
             getXmpp().setAuthResult(from, false);
             return;
         }
         if (null == type) {
-            type = x.getFirstNodeValue("sh" + "ow");
+            type = x.getFirstNodeValue("show");
         }
         if (null == type) {
             type = "";
@@ -1163,7 +1164,7 @@ public final class XmppConnection extends ClientConnection {
             }
         }
 
-        int priority = Util.strToIntDef(x.getFirstNodeValue("prior" + "ity"), 0);
+        int priority = Util.strToIntDef(x.getFirstNodeValue("priority"), 0);
         String statusString = x.getFirstNodeValue(S_STATUS);
         if (Jid.isConference(from)) {
             XmlNode xMuc = x.getXNode("http://jabber.org/protocol/muc#user");
@@ -1181,33 +1182,33 @@ public final class XmppConnection extends ClientConnection {
 
             if (null != item) {
                 String affiliation = item.getAttribute(XmlNode.S_AFFILIATION);
-                if (("m" + "ember").equals(affiliation)) {
+                if (("member").equals(affiliation)) {
                     priorityA = XmppServiceContact.AFFILIATION_MEMBER;
                     //rangVoice = JLocale.getString("member");
-                } else if (("o" + "wner").equals(affiliation)) {
+                } else if (("owner").equals(affiliation)) {
                     priorityA = XmppServiceContact.AFFILIATION_OWNER;
-                    rangVoice = JLocale.getString("owner");
-                } else if (("a" + "dmin").equals(affiliation)) {
+                    rangVoice = JLocale.getString(R.string.owner);
+                } else if (("admin").equals(affiliation)) {
                     priorityA = XmppServiceContact.AFFILIATION_ADMIN;
-                    rangVoice = JLocale.getString("admin");
+                    rangVoice = JLocale.getString(R.string.admin);
                 } else {
                     priorityA = XmppServiceContact.AFFILIATION_NONE;
-                    rangVoice = JLocale.getString("none");
+                    rangVoice = JLocale.getString(R.string.none);
                 }
                 String role = item.getAttribute(XmlNode.S_ROLE);
-                if (("m" + "oderator").equals(role)) {
+                if (("moderator").equals(role)) {
                     priority = XmppServiceContact.ROLE_MODERATOR;
-                    roleVoice = JLocale.getString("moderator");
-                } else if (("p" + "articipant").equals(role)) {
+                    roleVoice = JLocale.getString(R.string.moderator);
+                } else if (("participant").equals(role)) {
                     priority = XmppServiceContact.ROLE_PARTICIPANT;
-                    roleVoice = JLocale.getString("participant");
+                    roleVoice = JLocale.getString(R.string.participant);
                 } else if (S_NONE.equals(role)) {
-                    reasone = item.getFirstNodeValue("r" + "eason");
+                    reasone = item.getFirstNodeValue("reason");
                     item = null;
-                    roleVoice = JLocale.getString("reason");
+                    roleVoice = JLocale.getString(R.string.reason);
                 } else {
                     priority = XmppServiceContact.ROLE_VISITOR;
-                    roleVoice = JLocale.getString("visitor");
+                    roleVoice = JLocale.getString(R.string.visitor);
                 }
             }
             if (rangVoice != null) rangVoice += "/" + roleVoice;
@@ -1237,7 +1238,7 @@ public final class XmppConnection extends ClientConnection {
                 }
                 contact.setClient(fromRes, x.getFirstNodeAttribute("c", S_NODE));
                 if (303 == code) {
-                    conf.addPresence(getXmpp(), fromRes, ": " + JLocale.getString("change_nick") + " " + StringConvertor.notNull(newNick));
+                    conf.addPresence(getXmpp(), fromRes, ": " + JLocale.getString(R.string.change_nick) + " " + StringConvertor.notNull(newNick));
                 }
             } else {
                 conf.nickOffline(getXmpp(), fromRes, code, StringConvertor.notNull(reasone), StringConvertor.notNull(statusString));
@@ -1249,7 +1250,7 @@ public final class XmppConnection extends ClientConnection {
             if (RosterHelper.getInstance().getUpdateChatListener() != null)
                 RosterHelper.getInstance().getUpdateChatListener().updateMucList();
         } else {
-            if (!("u" + "navailable").equals(type)) {
+            if (!("unavailable").equals(type)) {
                 if ((XStatusInfo.XSTATUS_NONE == contact.getXStatusIndex())
                         || !Xmpp.xStatus.isPep(contact.getXStatusIndex())) {
                     XmlNode xNode = x.getXNode(S_FEATURE_XSTATUS);
@@ -1285,7 +1286,7 @@ public final class XmppConnection extends ClientConnection {
     }
 
     private String getNickFromNode(XmlNode x) {
-        String name = x.getFirstNodeValueRecursive("n" + "ickname");
+        String name = x.getFirstNodeValueRecursive("nickname");
         return (null == name) ? x.getFirstNodeValue(S_NICK) : name;
     }
 
@@ -1383,12 +1384,12 @@ public final class XmppConnection extends ClientConnection {
         if (null == messageEvent) {
             return;
         }
-        if (messageEvent.contains("offl" + "ine")) {
+        if (messageEvent.contains("offline")) {
             setMessageSended(messageEvent.getFirstNodeValue(XmlNode.S_ID),
                     PlainMessage.NOTIFY_FROM_SERVER);
             return;
         }
-        if (messageEvent.contains("deli" + "vered")) {
+        if (messageEvent.contains("delivered")) {
             setMessageSended(messageEvent.getFirstNodeValue(XmlNode.S_ID),
                     PlainMessage.NOTIFY_FROM_CLIENT);
             return;
@@ -1401,9 +1402,9 @@ public final class XmppConnection extends ClientConnection {
     private void parseChatState(XmlNode message, String from) {
         if (0 < Options.getInt(Options.OPTION_TYPING_MODE)) {
             if (message.contains(S_ACTIVE)
-                    || message.contains("gon" + "e")
+                    || message.contains("gone")
                     || message.contains(S_PAUSED)
-                    || message.contains("inactiv" + "e")) {
+                    || message.contains("inactive")) {
                 getXmpp().beginTyping(from, false);
             } else if (message.contains(S_COMPOSING)) {
                 getXmpp().beginTyping(from, true);
@@ -1414,7 +1415,7 @@ public final class XmppConnection extends ClientConnection {
     private String getDate(XmlNode message) {
         XmlNode offline = message.getXNode("jabber:x:delay");
         if (null == offline) {
-            offline = message.getFirstNode("d" + "elay");
+            offline = message.getFirstNode("delay");
         }
         return (null == offline) ? null : offline.getAttribute("stamp");
     }
@@ -1436,10 +1437,10 @@ public final class XmppConnection extends ClientConnection {
     }
 
     private void parseMessage(XmlNode msg) {
-        msg.removeNode("h" + "tml");
+        msg.removeNode("html");
 
         String type = msg.getAttribute(S_TYPE);
-        boolean isGroupchat = ("groupc" + "hat").equals(type);
+        boolean isGroupchat = ("groupchat").equals(type);
         boolean isError = S_ERROR.equals(type);
 
         String fullJid = msg.getAttribute(S_FROM);
@@ -1449,7 +1450,7 @@ public final class XmppConnection extends ClientConnection {
         }
         String from = Jid.getBareJid(fullJid);
         if (from.equals(getXmpp().getUserId())) {
-            XmlNode addresses = msg.getFirstNode("a" + "ddresses");
+            XmlNode addresses = msg.getFirstNode("addresses");
             if (null != addresses) {
                 String ofrom = null;
                 while (0 < addresses.childrenCount()) {
@@ -1490,7 +1491,7 @@ public final class XmppConnection extends ClientConnection {
         }
 
         if (!isConference) {
-            if (msg.contains("atte" + "ntion")) {
+            if (msg.contains("attention")) {
                 type = S_CHAT;
                 text = PlainMessage.CMD_WAKEUP;
                 subject = null;
@@ -1502,7 +1503,7 @@ public final class XmppConnection extends ClientConnection {
         }
 
         if (null == text) {
-            XmlNode received = msg.getFirstNode("recei" + "ved");
+            XmlNode received = msg.getFirstNode("received");
             if (null != received) {
                 String id = received.getId();
                 if (null == id) {
@@ -1513,7 +1514,7 @@ public final class XmppConnection extends ClientConnection {
             }
             if (!Jid.isConference(from) && !isError) {
                 parseMessageEvent(msg.getXNode("jabber:x:event"), from);
-                parseEvent(msg.getFirstNode("ev" + "ent"), fullJid);
+                parseEvent(msg.getFirstNode("event"), fullJid);
             }
             return;
         }
@@ -1534,7 +1535,7 @@ public final class XmppConnection extends ClientConnection {
             }
 
         } else {
-            if ((null != c) && msg.contains("c" + "aptcha")) {
+            if ((null != c) && msg.contains("captcha")) {
                 final XmppForm form = new XmppForm(XmppForm.TYPE_CAPTCHA,
                         getXmpp(), from);
                 form.showCaptcha(msg);
@@ -1555,7 +1556,7 @@ public final class XmppConnection extends ClientConnection {
                 }
             }
 
-            if (!isGroupchat && msg.contains("reques" + "t") && (null != msg.getId())) {
+            if (!isGroupchat && msg.contains("request") && (null != msg.getId())) {
                 putPacketIntoQueue("<message to='" + Util.xmlEscape(fullJid)
                         + "' id='" + Util.xmlEscape(msg.getId())
                         + "'><received xmlns='urn:xmpp:receipts' id='"
@@ -1788,7 +1789,7 @@ public final class XmppConnection extends ClientConnection {
                     + "</iq>");
             return;
         }
-        x2 = x.getFirstNode("a" + "uth", "http://jabber.org/features/iq-auth");
+        x2 = x.getFirstNode("auth", "http://jabber.org/features/iq-auth");
         if (null != x2) {
             nonSaslLogin();
             return;
@@ -2002,8 +2003,8 @@ public final class XmppConnection extends ClientConnection {
             if (!jid.endsWith(domain)) {
                 continue;
             }
-            boolean isDelete = item.getAttribute("a" + "ction").equals("d" + "elete");
-            boolean isModify = item.getAttribute("a" + "ction").equals("m" + "odify");
+            boolean isDelete = item.getAttribute("action").equals("delete");
+            boolean isModify = item.getAttribute("action").equals("modify");
 
             XmppContact contact = (XmppContact) j.getItemByUIN(jid);
             if (null == contact) {
@@ -2190,7 +2191,7 @@ public final class XmppConnection extends ClientConnection {
                 + "xmlns:stream='http:/" + "/etherx.jabber.org/streams' "
                 + "version='1.0' "
                 + "to='" + server + "'"
-                + " xml:lang='" + sawim.util.JLocale.getLanguageCode() + "'>";
+                + " xml:lang='" + sawim.util.JLocale.getSystemLanguage() + "'>";
     }
 
     private void getVCard(String jid) {
@@ -2210,7 +2211,7 @@ public final class XmppConnection extends ClientConnection {
             if (!getXmpp().isContactOverGate(to)) {
                 msg = msg.substring(PlainMessage.CMD_WAKEUP.length()).trim();
                 if (StringConvertor.isEmpty(msg)) {
-                    msg = "/me " + JLocale.getString("wake_you_up");
+                    msg = "/me " + JLocale.getString(R.string.wake_you_up);
                 }
             }
         }
@@ -2360,15 +2361,15 @@ public final class XmppConnection extends ClientConnection {
     }
 
     public void sendSubscribed(String jid) {
-        requestPresence(jid, "s" + "ubscribed");
+        requestPresence(jid, "subscribed");
     }
 
     public void sendUnsubscribed(String jid) {
-        requestPresence(jid, "u" + "nsubscribed");
+        requestPresence(jid, "unsubscribed");
     }
 
     public void requestSubscribe(String jid) {
-        requestPresence(jid, "s" + "ubscribe");
+        requestPresence(jid, "subscribe");
     }
 
     private void requestPresence(String jid, String type) {
@@ -2561,8 +2562,8 @@ public final class XmppConnection extends ClientConnection {
                     getXmpp().getProfile().statusMessage, Xmpp.PRIORITY);
             return;
         }
-        final String mood = "mo" + "od";
-        final String activity = "acti" + "vity";
+        final String mood = "mood";
+        final String activity = "activity";
         if (!xstatusCode.startsWith(mood)) {
             sendXStatus(mood, null);
         }

@@ -10,6 +10,7 @@ import sawim.Options;
 import sawim.comm.Config;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
+import sawim.util.JLocale;
 
 import java.util.Vector;
 
@@ -29,7 +30,7 @@ public class XmppContact extends Contact {
     }
 
     public String getDefaultGroupName() {
-        return Xmpp.GENERAL_GROUP;
+        return JLocale.getString(Xmpp.GENERAL_GROUP);
     }
 
     public void addChatMenuItems(ContextMenu model) {
@@ -114,8 +115,8 @@ public class XmppContact extends Contact {
             newMessage = param.substring(endNick + 1);
         }
         String xml = null;
-        final String on = "o" + "n";
-        final String off = "o" + "f" + "f";
+        final String on = "on";
+        final String off = "off";
         if (on.equals(param) || off.equals(param)) {
             xml = Config.getConfigValue(cmd + ' ' + param, "/jabber-commands.txt");
         }
