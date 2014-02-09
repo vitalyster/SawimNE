@@ -281,7 +281,6 @@
     <string name="conferences_on_">Conferences on</string>
     <string name="currect_contact">Current contact</string>
     <string name="days">d</string>
-    <string name="delete">Delete</string>
     <string name="delete_all">Delete all</string>
     <string name="delete_chat">Clear this chat</string>
     <string name="deny">Deny Auth</string>
@@ -335,7 +334,6 @@
     <string name="message">Message</string>
     <string name="message_notification">Message Notice</string>
     <string name="minutes">m</string>
-    <string name="move_to_group">Move to group</string>
     <string name="my_server">My server</string>
     <string name="name">Name</string>
     <string name="name_desc">File name and description</string>
