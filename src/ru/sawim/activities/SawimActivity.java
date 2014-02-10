@@ -210,6 +210,7 @@ public class SawimActivity extends ActionBarActivity {
     public void onResume() {
         super.onResume();
         SawimApplication.setCurrentActivity(this);
+        SawimApplication.setActionBar(getSupportActionBar());
         SawimApplication.maximize();
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         if (RosterHelper.getInstance().getProtocolCount() == 0) {
@@ -252,7 +253,7 @@ public class SawimActivity extends ActionBarActivity {
                 back();
         } else if (preferenceFormView != null) {
             if (preferenceFormView.hasBack()) {
-                if (SawimApplication.isManyPane() || Scheme.isChangeTheme(Options.getInt(Options.OPTION_COLOR_SCHEME))) {
+                if (SawimApplication.isManyPane()) {
                     recreateActivity();
                 } else {
                     super.onBackPressed();
@@ -399,9 +400,7 @@ public class SawimActivity extends ActionBarActivity {
         Protocol p = RosterHelper.getInstance().getCurrentProtocol();
         switch (item.getItemId()) {
             case MENU_CONNECT:
-                //SawimApplication.getInstance().setStatus();
-                RosterHelper.getInstance().setStatus();
-                Thread.yield();
+                SawimApplication.getInstance().setStatus();
                 break;
             case MENU_STATUS:
                 new StatusesView(p, StatusesView.ADAPTER_STATUS).show(getSupportFragmentManager(), "change-status");
