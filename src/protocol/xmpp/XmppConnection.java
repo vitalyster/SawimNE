@@ -1,11 +1,5 @@
 package protocol.xmpp;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
 import protocol.*;
 import protocol.net.ClientConnection;
 import ru.sawim.R;
@@ -26,6 +20,8 @@ import sawim.util.JLocale;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Vector;
 
 
@@ -1903,31 +1899,29 @@ public final class XmppConnection extends ClientConnection {
             String first = "Email=" + escapedJid
                     + "&Passwd=" + Util.urlEscape(passwd)
                     + "&PersistentCookie=false&source=googletalk";
-            HttpClient c = new DefaultHttpClient();
-            HttpResponse resp = c.execute(new HttpGet("https://www.google.com:443/accounts/ClientAuth?" + first));
+            HttpURLConnection c = (HttpURLConnection)new URL("https://www.google.com:443/accounts/ClientAuth?" + first).openConnection();
 
             DebugLog.systemPrintln("[INFO-JABBER] Connecting to www.google.com");
-            StatusLine status = resp.getStatusLine();
-            if (status.getStatusCode() == HttpStatus.SC_OK) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(resp.getEntity().getContent(), "UTF-8"));
+
+            if (c.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"));
                 String str = reader.readLine();
                 if (str.startsWith("SID=")) {
                     String SID = str.substring(4, str.length());
                     str = reader.readLine();
                     String LSID = str.substring(5, str.length());
                     first = "SID=" + SID + "&LSID=" + LSID + "&service=mail&Session=true";
-                    resp.getEntity().consumeContent();
-
-                    HttpResponse response2 = c.execute(new HttpGet("https://www.google.com:443/accounts/IssueAuthToken?" + first));
+                    c.disconnect();
+                    HttpURLConnection c2 = (HttpURLConnection)new URL("https://www.google.com:443/accounts/IssueAuthToken?" + first).openConnection();
 
                     DebugLog.systemPrintln("[INFO-JABBER] Next www.google.com connection");
-                    status = response2.getStatusLine();
-                    if (status.getStatusCode() == HttpStatus.SC_OK) {
+
+                    if (c2.getResponseCode() == HttpURLConnection.HTTP_OK) {
                         BufferedReader reader2 = new BufferedReader(
-                                new InputStreamReader(response2.getEntity().getContent(), "UTF-8"));
+                                new InputStreamReader(c2.getInputStream(), "UTF-8"));
 
                         str = reader2.readLine();
-
+                        c2.disconnect();
                         Util data = new Util();
                         data.writeByte(0);
                         data.writeUtf8String(Jid.getNick(jid));
