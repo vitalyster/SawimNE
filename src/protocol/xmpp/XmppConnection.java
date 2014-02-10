@@ -183,9 +183,9 @@ public final class XmppConnection extends ClientConnection {
         socket.write(data);
     }
 
-    private void connectTo(String url) throws SawimException {
+    private void connectTo(String host, int port) throws SawimException {
         socket = new Socket();
-        socket.connectTo(url);
+        socket.connectTo(host, port);
     }
 
     public final void disconnect() {
@@ -275,9 +275,9 @@ public final class XmppConnection extends ClientConnection {
         }
     }
 
-    XmlNode newAccountConnect(String domain, String server) throws SawimException {
+    XmlNode newAccountConnect(String domain, String server, int port) throws SawimException {
         domain = Util.xmlEscape(domain);
-        connectTo(server);
+        connectTo(server, port);
         write(getOpenStreamXml(domain));
         readXmlNode(true);
         XmlNode features = readXmlNode(true);
@@ -296,37 +296,39 @@ public final class XmppConnection extends ClientConnection {
         return x;
     }
 
-    private String getSocketUrl(String server) {
+    private String[] getHostAndPort(String server) {
+        // TODO: legacy SSL
         String defaultServer = getXmpp().getDefaultServer(domain_);
 
         String[] url = Util.explode(server, ':');
-        String[] socketUrl = new String[3];
+        String[] socketUrl = new String[2];
         final String S_SOCKET = "socket";
         final String S_SSL = "ssl";
         final String S_5222 = "5222";
         if (3 == url.length) {
-            socketUrl[0] = url[0];
-            socketUrl[1] = url[1];
-            socketUrl[2] = url[2];
+            // skip socket/ssl, get host and port
+            socketUrl[0] = url[1];
+            socketUrl[1] = url[2];
 
         } else if (2 == url.length) {
-            socketUrl[0] = url[1].equals(S_5222) ? S_SOCKET : S_SSL;
-            socketUrl[1] = url[0];
-            socketUrl[2] = url[1];
+            // get host and port
+            socketUrl[0] = url[0];
+            socketUrl[1] = url[1];
 
         } else if (1 == url.length) {
-            socketUrl[0] = S_SOCKET;
-            socketUrl[1] = url[0];
-            socketUrl[2] = S_5222;
+            // default port
+            socketUrl[0] = url[0];
+            socketUrl[1] = S_5222;
         }
         if (null != defaultServer) {
-            socketUrl[1] = defaultServer;
+            socketUrl[0] = defaultServer;
             url = Util.explode(defaultServer, ':');
             if (3 == url.length) {
-                socketUrl = url;
+                socketUrl[0] = url[1];
+                socketUrl[1] = url[2];
             }
         }
-        return socketUrl[0] + "://" + socketUrl[1] + ":" + socketUrl[2];
+        return socketUrl;
     }
 
     protected final void connect() throws SawimException {
@@ -342,7 +344,8 @@ public final class XmppConnection extends ClientConnection {
         if (StringConvertor.isEmpty(server)) {
             server = domain_;
         }
-        connectTo(getSocketUrl(server));
+        String []hostAndPort = getHostAndPort(server);
+        connectTo(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
 
         write(getOpenStreamXml(domain_));
         setProgress(10);

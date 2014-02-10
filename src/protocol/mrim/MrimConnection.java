@@ -84,7 +84,7 @@ public final class MrimConnection extends ClientConnection {
         StringBuilder buffer = new StringBuilder();
         try {
             TcpSocket s = new TcpSocket();
-            s.connectForReadingTo("socket://mrim.mail.ru:2042");
+            s.connectTo("mrim.mail.ru", 2042);
             int ch;
             while (true) {
                 ch = s.read();
@@ -135,7 +135,8 @@ public final class MrimConnection extends ClientConnection {
 
         setProgress(20);
         socket = new TcpSocket();
-        socket.connectTo("socket://" + server);
+        String[] mrimHost = Util.explode(server, ':');
+        socket.connectTo(mrimHost[0], Integer.parseInt(mrimHost[1]));
 
         DebugLog.println("send hello");
 
