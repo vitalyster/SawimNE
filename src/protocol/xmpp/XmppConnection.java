@@ -1,5 +1,11 @@
 package protocol.xmpp;
 
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
 import protocol.*;
 import protocol.net.ClientConnection;
 import ru.sawim.R;
@@ -17,9 +23,9 @@ import sawim.roster.RosterHelper;
 import sawim.search.UserInfo;
 import sawim.util.JLocale;
 
-import javax.microedition.io.Connector;
-import javax.microedition.io.HttpsConnection;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.InputStreamReader;
 import java.util.Vector;
 
 
@@ -1897,38 +1903,41 @@ public final class XmppConnection extends ClientConnection {
             String first = "Email=" + escapedJid
                     + "&Passwd=" + Util.urlEscape(passwd)
                     + "&PersistentCookie=false&source=googletalk";
-
-            HttpsConnection c = (HttpsConnection) Connector
-                    .open("https:/" + "/www.google.com:443/accounts/ClientAuth?" + first);
+            HttpClient c = new DefaultHttpClient();
+            HttpResponse resp = c.execute(new HttpGet("https://www.google.com:443/accounts/ClientAuth?" + first));
 
             DebugLog.systemPrintln("[INFO-JABBER] Connecting to www.google.com");
+            StatusLine status = resp.getStatusLine();
+            if (status.getStatusCode() == HttpStatus.SC_OK) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(resp.getEntity().getContent(), "UTF-8"));
+                String str = reader.readLine();
+                if (str.startsWith("SID=")) {
+                    String SID = str.substring(4, str.length());
+                    str = reader.readLine();
+                    String LSID = str.substring(5, str.length());
+                    first = "SID=" + SID + "&LSID=" + LSID + "&service=mail&Session=true";
+                    resp.getEntity().consumeContent();
 
-            DataInputStream dis = c.openDataInputStream();
-            String str = readLine(dis);
-            if (str.startsWith("SID=")) {
-                String SID = str.substring(4, str.length());
-                str = readLine(dis);
-                String LSID = str.substring(5, str.length());
-                first = "SID=" + SID + "&LSID=" + LSID + "&service=mail&Session=true";
-                dis.close();
-                c.close();
-                c = (HttpsConnection) Connector
-                        .open("https://www.google.com:443/accounts/IssueAuthToken?" + first);
+                    HttpResponse response2 = c.execute(new HttpGet("https://www.google.com:443/accounts/IssueAuthToken?" + first));
 
-                DebugLog.systemPrintln("[INFO-JABBER] Next www.google.com connection");
+                    DebugLog.systemPrintln("[INFO-JABBER] Next www.google.com connection");
+                    status = response2.getStatusLine();
+                    if (status.getStatusCode() == HttpStatus.SC_OK) {
+                        BufferedReader reader2 = new BufferedReader(
+                                new InputStreamReader(response2.getEntity().getContent(), "UTF-8"));
 
-                dis = c.openDataInputStream();
-                str = readLine(dis);
+                        str = reader2.readLine();
 
-                Util data = new Util();
-                data.writeByte(0);
-                data.writeUtf8String(Jid.getNick(jid));
-                data.writeByte(0);
-                data.writeUtf8String(str);
-                String token = MD5.toBase64(data.toByteArray());
-                dis.close();
-                c.close();
-                return token;
+                        Util data = new Util();
+                        data.writeByte(0);
+                        data.writeUtf8String(Jid.getNick(jid));
+                        data.writeByte(0);
+                        data.writeUtf8String(str);
+                        String token = MD5.toBase64(data.toByteArray());
+                        return token;
+                    }
+
+                }
             }
 
         } catch (Exception ex) {
