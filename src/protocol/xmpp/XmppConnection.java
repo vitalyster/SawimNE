@@ -1,5 +1,6 @@
 package protocol.xmpp;
 
+import android.util.Log;
 import protocol.*;
 import protocol.net.ClientConnection;
 import ru.sawim.R;
@@ -12,14 +13,17 @@ import sawim.comm.Config;
 import sawim.comm.MD5;
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
+import sawim.modules.AutoAbsence;
 import sawim.modules.DebugLog;
 import sawim.roster.RosterHelper;
 import sawim.search.UserInfo;
 import sawim.util.JLocale;
 
-import javax.microedition.io.Connector;
-import javax.microedition.io.HttpsConnection;
-import java.io.DataInputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Vector;
 
 
@@ -181,9 +185,9 @@ public final class XmppConnection extends ClientConnection {
         socket.write(data);
     }
 
-    private void connectTo(String url) throws SawimException {
+    private void connectTo(String host, int port) throws SawimException {
         socket = new Socket();
-        socket.connectTo(url);
+        socket.connectTo(host, port);
     }
 
     public final void disconnect() {
@@ -273,9 +277,9 @@ public final class XmppConnection extends ClientConnection {
         }
     }
 
-    XmlNode newAccountConnect(String domain, String server) throws SawimException {
+    XmlNode newAccountConnect(String domain, String server, int port) throws SawimException {
         domain = Util.xmlEscape(domain);
-        connectTo(server);
+        connectTo(server, port);
         write(getOpenStreamXml(domain));
         readXmlNode(true);
         XmlNode features = readXmlNode(true);
@@ -294,37 +298,40 @@ public final class XmppConnection extends ClientConnection {
         return x;
     }
 
-    private String getSocketUrl(String server) {
+    private String[] getHostAndPort(String server) {
+        // TODO: legacy SSL
         String defaultServer = getXmpp().getDefaultServer(domain_);
 
         String[] url = Util.explode(server, ':');
-        String[] socketUrl = new String[3];
+        String[] socketUrl = new String[2];
         final String S_SOCKET = "socket";
         final String S_SSL = "ssl";
         final String S_5222 = "5222";
         if (3 == url.length) {
+            // skip socket/ssl, get host and port
+            socketUrl[0] = url[1];
+            socketUrl[1] = url[2];
+            return socketUrl;
+        } else if (2 == url.length) {
+            // get host and port
             socketUrl[0] = url[0];
             socketUrl[1] = url[1];
-            socketUrl[2] = url[2];
-
-        } else if (2 == url.length) {
-            socketUrl[0] = url[1].equals(S_5222) ? S_SOCKET : S_SSL;
-            socketUrl[1] = url[0];
-            socketUrl[2] = url[1];
-
+            return socketUrl;
         } else if (1 == url.length) {
-            socketUrl[0] = S_SOCKET;
-            socketUrl[1] = url[0];
-            socketUrl[2] = S_5222;
+            // default port
+            socketUrl[0] = url[0];
+            socketUrl[1] = S_5222;
+            return socketUrl;
         }
         if (null != defaultServer) {
-            socketUrl[1] = defaultServer;
+            socketUrl[0] = defaultServer;
             url = Util.explode(defaultServer, ':');
             if (3 == url.length) {
-                socketUrl = url;
+                socketUrl[0] = url[1];
+                socketUrl[1] = url[2];
             }
         }
-        return socketUrl[0] + "://" + socketUrl[1] + ":" + socketUrl[2];
+        return socketUrl;
     }
 
     protected final void connect() throws SawimException {
@@ -340,7 +347,8 @@ public final class XmppConnection extends ClientConnection {
         if (StringConvertor.isEmpty(server)) {
             server = domain_;
         }
-        connectTo(getSocketUrl(server));
+        String []hostAndPort = getHostAndPort(server);
+        connectTo(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
 
         write(getOpenStreamXml(domain_));
         setProgress(10);
@@ -1051,7 +1059,6 @@ public final class XmppConnection extends ClientConnection {
         }
         Xmpp xmpp = getXmpp();
         Group group = xmpp.getOrCreateGroup(JLocale.getString(Xmpp.CONFERENCE_GROUP));
-        int autoJoinCount = xmpp.isReconnect() ? 0 : 27;
         Vector groups = xmpp.getGroupItems();
         Vector contacts = xmpp.getContactItems();
         while (0 < storage.childrenCount()) {
@@ -1076,9 +1083,8 @@ public final class XmppConnection extends ClientConnection {
             if (-1 == Util.getIndex(contacts, conference)) {
                 contacts.addElement(conference);
             }
-            if (conference.isAutoJoin() && (0 < autoJoinCount)) {
+            if (conference.isAutoJoin()) {
                 xmpp.join(conference);
-                autoJoinCount--;
             }
         }
         xmpp.setContactListAddition(group);
@@ -1897,59 +1903,46 @@ public final class XmppConnection extends ClientConnection {
             String first = "Email=" + escapedJid
                     + "&Passwd=" + Util.urlEscape(passwd)
                     + "&PersistentCookie=false&source=googletalk";
-
-            HttpsConnection c = (HttpsConnection) Connector
-                    .open("https:/" + "/www.google.com:443/accounts/ClientAuth?" + first);
+            HttpURLConnection c = (HttpURLConnection)new URL("https://www.google.com:443/accounts/ClientAuth?" + first).openConnection();
 
             DebugLog.systemPrintln("[INFO-JABBER] Connecting to www.google.com");
 
-            DataInputStream dis = c.openDataInputStream();
-            String str = readLine(dis);
-            if (str.startsWith("SID=")) {
-                String SID = str.substring(4, str.length());
-                str = readLine(dis);
-                String LSID = str.substring(5, str.length());
-                first = "SID=" + SID + "&LSID=" + LSID + "&service=mail&Session=true";
-                dis.close();
-                c.close();
-                c = (HttpsConnection) Connector
-                        .open("https://www.google.com:443/accounts/IssueAuthToken?" + first);
+            if (c.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                InputStream is = c.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                String str = reader.readLine();
+                if (str.startsWith("SID=")) {
+                    String SID = str.substring(4, str.length());
+                    str = reader.readLine();
+                    String LSID = str.substring(5, str.length());
+                    first = "SID=" + SID + "&LSID=" + LSID + "&service=mail&Session=true";
+                    c.disconnect();
+                    is.close();
+                    c = (HttpURLConnection)new URL("https://www.google.com:443/accounts/IssueAuthToken?" + first).openConnection();
 
-                DebugLog.systemPrintln("[INFO-JABBER] Next www.google.com connection");
+                    DebugLog.systemPrintln("[INFO-JABBER] Next www.google.com connection");
+                    is = c.getInputStream();
+                    if (c.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        BufferedReader reader2 = new BufferedReader(
+                                new InputStreamReader(is, "UTF-8"));
 
-                dis = c.openDataInputStream();
-                str = readLine(dis);
-
-                Util data = new Util();
-                data.writeByte(0);
-                data.writeUtf8String(Jid.getNick(jid));
-                data.writeByte(0);
-                data.writeUtf8String(str);
-                String token = MD5.toBase64(data.toByteArray());
-                dis.close();
-                c.close();
-                return token;
+                        str = reader2.readLine();
+                        c.disconnect();
+                        is.close();
+                        Util data = new Util();
+                        data.writeByte(0);
+                        data.writeUtf8String(Jid.getNick(jid));
+                        data.writeByte(0);
+                        data.writeUtf8String(str);
+                        String token = MD5.toBase64(data.toByteArray());
+                        return token;
+                    }
+                }
             }
-
         } catch (Exception ex) {
             DebugLog.systemPrintln("EX: " + ex.toString());
         }
         return null;
-    }
-
-
-    private String readLine(DataInputStream dis) {
-        StringBuilder s = new StringBuilder();
-        try {
-            for (byte ch = dis.readByte(); ch != -1; ch = dis.readByte()) {
-                if (ch == '\n') {
-                    return s.toString();
-                }
-                s.append((char) ch);
-            }
-        } catch (Exception e) {
-        }
-        return s.toString();
     }
 
     private void updateConfPrivate(XmppServiceContact conf, String resource) {
@@ -2294,10 +2287,12 @@ public final class XmppConnection extends ClientConnection {
             xml += "<show>" + status + "</show>";
         }
 
-        if (Options.getBoolean(Options.OPTION_TITLE_IN_CONFERENCE)) {
-            String xstatusTitle = getXmpp().getProfile().xstatusTitle;
-            xml += (StringConvertor.isEmpty(xstatusTitle) ? "" : "<status>" + Util.xmlEscape(xstatusTitle) + "</status>");
+        String xstatusTitle = getXmpp().getProfile().xstatusTitle;
+        String descr = getXmpp().getProfile().xstatusDescription;
+        if (!StringConvertor.isEmpty(descr)) {
+            xstatusTitle += " " + descr;
         }
+        xml += (StringConvertor.isEmpty(xstatusTitle) ? "" : "<status>" + Util.xmlEscape(xstatusTitle) + "</status>");
 
         xml = "<presence to='" + Util.xmlEscape(to) + "'>" + xml
                 + getCaps() + "</presence>";
@@ -2321,7 +2316,7 @@ public final class XmppConnection extends ClientConnection {
             msg = getXmpp().getProfile().xstatusTitle;
             String descr = getXmpp().getProfile().xstatusDescription;
             if (!StringConvertor.isEmpty(descr)) {
-                msg = msg + " " + descr;
+                msg += " " + descr;
             }
         }
 
@@ -2330,13 +2325,11 @@ public final class XmppConnection extends ClientConnection {
                 + (StringConvertor.isEmpty(msg) ? "" : "<status>" + Util.xmlEscape(msg) + "</status>")
                 + (0 < priority ? "<priority>" + priority + "</priority>" : "")
                 + getCaps()
-
                 + xXml
                 + "</presence>";
         putPacketIntoQueue(xml);
-        if (Options.getBoolean(Options.OPTION_TITLE_IN_CONFERENCE)) {
+        if (!AutoAbsence.getInstance().isChangeStatus())
             setConferencesXStatus(status, msg, priority);
-        }
     }
 
     void setConferencesXStatus(String status, String msg, int priority) {
