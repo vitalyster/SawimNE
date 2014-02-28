@@ -32,8 +32,8 @@ import ru.sawim.R;
 import ru.sawim.SawimApplication;
 import ru.sawim.SawimResources;
 import ru.sawim.Scheme;
-import ru.sawim.models.ChatsAdapter;
 import ru.sawim.models.MessagesAdapter;
+import ru.sawim.models.RosterAdapter;
 import ru.sawim.view.menu.JuickMenu;
 import ru.sawim.widget.MyListView;
 import ru.sawim.widget.Util;
@@ -70,7 +70,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
     private boolean isOpenMenu = false;
     private boolean isConference;
 
-    private ChatsAdapter chatsSpinnerAdapter;
+    private RosterAdapter chatsSpinnerAdapter;
     private MessagesAdapter adapter = new MessagesAdapter();
     private EditText messageEditor;
     private MyListView nickList;
@@ -114,6 +114,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
             @Override
             public void onConfigurationChanged() {
                 adapter.isRepaint = true;
+                hideKeyboard();
             }
         });
     }
@@ -143,18 +144,20 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceStateLog) {
         updateChatIcon();
-        if (drawerLayout != null && drawerLayout.getParent() != null)
+        if (drawerLayout != null && drawerLayout.getParent() != null) {
             ((ViewGroup) drawerLayout.getParent()).removeView(drawerLayout);
-        if (chatViewLayout.getParent() != null)
+        }
+        if (chatViewLayout.getParent() != null) {
             ((ViewGroup) chatViewLayout.getParent()).removeView(chatViewLayout);
-
-        if (Scheme.isSystemBackground())
+        }
+        if (Scheme.isSystemBackground()) {
             chatViewLayout.setBackgroundResource(Util.getSystemBackground(getActivity()));
-        else
+        } else {
             chatViewLayout.setBackgroundColor(Scheme.getColor(Scheme.THEME_BACKGROUND));
-        chatBarLayout.updateDivider(Scheme.isBlack());
-        chatViewLayout.updateDivider(Scheme.isBlack());
-        chatListsView.updateDivider(Scheme.isBlack());
+        }
+        chatBarLayout.update();
+        chatViewLayout.update();
+        chatListsView.update();
         chatInputBarView.setImageButtons(menuButton, smileButton, sendButton);
         if (!SawimApplication.isManyPane()) {
             DrawerLayout.LayoutParams nickListLP = new DrawerLayout.LayoutParams(Util.dipToPixels(getActivity(), 240), DrawerLayout.LayoutParams.MATCH_PARENT);
@@ -165,8 +168,9 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
             drawerLayout.setLayoutParams(drawerLayoutLP);
             nickList.setBackgroundResource(Util.getSystemBackground(getActivity()));
             nickList.setLayoutParams(nickListLP);
-            if (nickList.getParent() != null)
+            if (nickList.getParent() != null) {
                 ((ViewGroup) nickList.getParent()).removeView(nickList);
+            }
             drawerLayout.addView(chatViewLayout);
             drawerLayout.addView(nickList);
             drawerLayout.setDrawerListener(new DrawerLayout.DrawerListener() {
@@ -257,7 +261,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
         smileButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                hideKeyboard(view);
+                hideKeyboard();
                 new SmilesView().show(SawimApplication.getCurrentActivity().getSupportFragmentManager(), "show-smiles");
             }
         });
@@ -276,7 +280,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
         sendByEnter = Options.getBoolean(Options.OPTION_SIMPLE_INPUT);
         if (sendByEnter) {
             messageEditor.setImeOptions(EditorInfo.IME_ACTION_SEND);
-            messageEditor.setOnEditorActionListener(enterListener);
+            //messageEditor.setOnEditorActionListener(enterListener);
         }
         if (sendByEnter) {
             sendButton.setVisibility(ImageButton.GONE);
@@ -305,36 +309,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
     @Override
     public void onDetach() {
         super.onDetach();
-        chatsImage.setOnClickListener(null);
-        menuButton.setOnClickListener(null);
-        usersImage.setOnClickListener(null);
-        smileButton.setOnClickListener(null);
-        chatBarLayout.setOnClickListener(null);
-        chatListView.setOnItemClickListener(null);
-        chatListView.setOnCreateContextMenuListener(null);
-        messageEditor.removeTextChangedListener(textWatcher);
-        if (sendByEnter) {
-            messageEditor.setOnEditorActionListener(null);
-        }
-        chatListView.setAdapter(null);
-        mucUsersView.destroy(nickList);
-        handler = null;
-        usersImage = null;
-        chatsImage = null;
-        menuButton = null;
-        smileButton = null;
-        sendButton = null;
-        messageEditor = null;
-        chatBarLayout = null;
-        chatListView = null;
-        nickList = null;
-        chatListsView = null;
-        chatInputBarView = null;
-        chatViewLayout = null;
-        drawerLayout = null;
         sharingText = null;
-        chatDialogFragment = null;
-        chatsSpinnerAdapter = null;
         chat = null;
         oldChat = null;
         contact = null;
@@ -413,6 +388,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
         removeMessages(Options.getInt(Options.OPTION_MAX_MSG_COUNT));
         if (sharingText != null) chat.message += " " + sharingText;
         messageEditor.setText(chat.message);
+        messageEditor.setSelection(messageEditor.getText().length());
         updateChatIcon();
         if (SawimApplication.isManyPane()) adapter.isRepaint = true;
         else drawerLayout.setDrawerLockMode(contact.isConference() ?
@@ -425,14 +401,6 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
     private void setPosition(int unreadMessageCount) {
         boolean hasHistory = chat.getHistory() != null && chat.getHistory().getHistorySize() > 0 && !chat.isBlogBot();
         adapter.setPosition(chat.dividerPosition);
-        if (oldChat != null) {
-            if (oldChat.equals(chat.getContact().getUserId())) {
-                if (unreadMessageCount > 0) {
-                    chatListView.setSelectionFromTop(chat.scrollPosition, - chat.offset);
-                }
-                return;
-            }
-        }
         if (chat.dividerPosition == 0) {
             if (contact.isConference() || (!contact.isConference() && !hasHistory)) {
                 chatListView.setSelection(0);
@@ -446,6 +414,12 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
             chatListView.setSelectionFromTop(chat.scrollPosition + (isLastPosition() ? 1 : 2), chat.offset);
         }
         adapter.refreshList(chat.getMessData());
+        chatListView.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_NORMAL);
+            }
+        }, 700L);
     }
 
     public boolean isLastPosition() {
@@ -489,7 +463,10 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
         chat = protocol.getChat(contact);
         lastChat = chat.getContact().getUserId();
         if (oldChat != null) {
-            if (oldChat.equals(lastChat)) return;
+            if (oldChat.equals(lastChat)) {
+                chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_DISABLED);
+                return;
+            }
         }
         initLabel();
         initList();
@@ -506,7 +483,8 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
 
     DialogFragment chatDialogFragment;
     private void initLabel() {
-        chatsSpinnerAdapter = new ChatsAdapter(getActivity());
+        chatsSpinnerAdapter = new RosterAdapter(getActivity());
+        chatsSpinnerAdapter.setType(RosterHelper.ACTIVE_CONTACTS);
         chatBarLayout.updateLabelIcon(chatsSpinnerAdapter.getImageChat(chat, false));
         chatBarLayout.updateTextView(contact.getName());
         chatBarLayout.setOnClickListener(new View.OnClickListener() {
@@ -621,7 +599,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
             chatBarLayout.setVisibilityChatsImage(View.VISIBLE);
             chatsImage.setImageDrawable(icMess);
         }
-        if (chatsSpinnerAdapter != null)
+        if (chatsSpinnerAdapter != null && chat != null)
             chatBarLayout.updateLabelIcon(chatsSpinnerAdapter.getImageChat(chat, false));
     }
 
@@ -749,7 +727,8 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
 
             case ContactMenu.ACTION_CURRENT_DEL_CHAT:
                 ChatHistory.instance.unregisterChat(chat);
-                getFragmentManager().popBackStack();
+                if (!SawimApplication.isManyPane())
+                    SawimApplication.getCurrentActivity().getSupportFragmentManager().popBackStack();
                 break;
 
             case ContactMenu.ACTION_DEL_ALL_CHATS_EXCEPT_CUR:
@@ -758,7 +737,14 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
 
             case ContactMenu.ACTION_DEL_ALL_CHATS:
                 ChatHistory.instance.removeAll(null);
-                getFragmentManager().popBackStack();
+                if (!SawimApplication.isManyPane())
+                    SawimApplication.getCurrentActivity().getSupportFragmentManager().popBackStack();
+                break;
+
+            case ContactMenu.CONFERENCE_DISCONNECT:
+                new ContactMenu(protocol, contact).doAction(ContactMenu.CONFERENCE_DISCONNECT);
+                if (!SawimApplication.isManyPane())
+                    SawimApplication.getCurrentActivity().getSupportFragmentManager().popBackStack();
                 break;
 
             default:
@@ -852,18 +838,18 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
     }
 
     public void showKeyboard() {
-        Configuration conf = Resources.getSystem().getConfiguration();
+        if (messageEditor == null) return;
         messageEditor.requestFocus();
-        if (conf.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_NO) {
+        if (Resources.getSystem().getConfiguration().hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_NO) {
             InputMethodManager keyboard = (InputMethodManager) SawimApplication.getCurrentActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
             keyboard.showSoftInput(messageEditor, InputMethodManager.SHOW_FORCED);
         }
     }
 
-    private void hideKeyboard(View view) {
-        if (Options.getBoolean(Options.OPTION_HIDE_KEYBOARD)) {
+    private void hideKeyboard() {
+        if (Options.getBoolean(Options.OPTION_HIDE_KEYBOARD) && messageEditor != null) {
             InputMethodManager imm = (InputMethodManager) SawimApplication.getCurrentActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            imm.hideSoftInputFromWindow(messageEditor.getWindowToken(), 0);
         }
     }
 
@@ -875,7 +861,7 @@ public class ChatView extends SawimFragment implements RosterHelper.OnUpdateChat
 
     private void send() {
         if (chat == null) return;
-        hideKeyboard(messageEditor);
+        hideKeyboard();
         chat.sendMessage(getText());
         resetText();
         chat.message = null;

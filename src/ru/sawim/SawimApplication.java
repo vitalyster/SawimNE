@@ -56,7 +56,7 @@ public class SawimApplication extends Application {
     public static SawimApplication instance;
     public AndroidRecordStoreManager recordStoreManager;
     private final SawimServiceConnection serviceConnection = new SawimServiceConnection();
-    private NetworkStateReceiver networkStateReceiver = new NetworkStateReceiver();
+    private final NetworkStateReceiver networkStateReceiver = new NetworkStateReceiver();
 
     public static SawimApplication getInstance() {
         return instance;
@@ -253,8 +253,8 @@ public class SawimApplication extends Application {
     }
 
     public void setConfigurationChanged(OnConfigurationChanged cC) {
-        if (configurationChanged == null)
-            configurationChanged = cC;
+        configurationChanged = null;
+        configurationChanged = cC;
     }
 
     public static ActionBar getActionBar() {
