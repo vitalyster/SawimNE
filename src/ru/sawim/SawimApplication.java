@@ -4,14 +4,18 @@ import android.app.Application;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Environment;
 import android.os.Message;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.Surface;
 import android.view.WindowManager;
+import com.google.android.gcm.GCMRegistrar;
 import org.microemu.util.AndroidRecordStoreManager;
 import ru.sawim.service.SawimService;
 import ru.sawim.service.SawimServiceConnection;
@@ -90,6 +94,19 @@ public class SawimApplication extends Application {
             Thread.yield();
         }
         updateAppIcon();
+        try {
+            GCMRegistrar.checkDevice(this);
+            GCMRegistrar.checkManifest(this);
+            final String regId = GCMRegistrar.getRegistrationId(this);
+            SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
+            String prefRegId = sp.getString("gcm_regid", null);
+            if (regId.length() == 0 || !regId.equals(prefRegId)) {
+                GCMRegistrar.register(this, GCMIntentService.CLIENT_ID);
+            }
+        } catch (Exception e) {
+            Log.e("SawGCM", e.toString());
+        }
+
     }
 
     private void startService() {
