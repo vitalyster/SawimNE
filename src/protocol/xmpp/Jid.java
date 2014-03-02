@@ -1,15 +1,16 @@
-
-
-
 package protocol.xmpp;
 
 import sawim.comm.StringConvertor;
 import sawim.comm.Util;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 
 public class Jid {
     private static final String[] transports = {"mrim.", "icq.", "picq.", "pyicq.", "sicq.", "j2j."};
     private static final String[] icqTransports = {"icq.", "picq.", "pyicq."};
+    public static final Pattern pattern = Pattern.compile("(([^ @/<>'\\\"]+)@)([^ @/<>'\\\"]+)(?:/([^ <>'\\\"]*))?");
 
     public static String realJidToSawimJid(String realJid) {
         if (isIrcConference(realJid)) {
@@ -59,9 +60,14 @@ public class Jid {
                 || jid.startsWith("irc.", start);
     }
 
+    public static boolean isJID(String jid) {
+        Matcher matcher = pattern.matcher(jid);
+        return matcher.matches();
+    }
+
     public static boolean isConference(String jid) {
         int index = jid.indexOf('@');
-        if (-1 < index) {
+        if ((-1 < index) && isJID(jid)) {
             if (isConferenceDomain(jid, index + 1)) {
                 return true;
             }

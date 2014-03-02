@@ -7,7 +7,6 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.*;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import ru.sawim.SawimApplication;
@@ -127,15 +126,11 @@ public class MyTextView extends View {
                 isSecondTap = true;
             }
             if (urlSpans.length != 0) {
-                InternalURLSpan urlSpan = urlSpans.length == 2 ? urlSpans[1] : null;
-                if (urlSpan == null) urlSpan = urlSpans[0];
-                final String link = urlSpan.clickedSpan;
-
                 Runnable longPressed = new Runnable() {
                     public void run() {
                         if (listener != null && !isSecondTap) {
                             isLongTap = true;
-                            listener.onTextLinkClick(MyTextView.this, link, true);
+                            listener.onTextLinkClick(MyTextView.this, buildUrl(urlSpans), true);
                         }
                     }
                 };
@@ -149,7 +144,7 @@ public class MyTextView extends View {
                         isSecondTap = true;
                         try {
                             if (listener != null)
-                                listener.onTextLinkClick(MyTextView.this, link, false);
+                                listener.onTextLinkClick(MyTextView.this, buildUrl(urlSpans), false);
                         } catch (ActivityNotFoundException e) {
                         }
                     } else {
@@ -160,6 +155,14 @@ public class MyTextView extends View {
             }
         }
         return super.onTouchEvent(event);
+    }
+
+    private String buildUrl(InternalURLSpan[] urlSpans) {
+        String link = urlSpans[0].clickedSpan;
+        if (urlSpans.length == 2
+                && urlSpans[1].clickedSpan.length() > urlSpans[0].clickedSpan.length())
+            link = urlSpans[1].clickedSpan;
+        return link;
     }
 
     public void setOnTextLinkClickListener(TextLinkClickListener onTextLinkClickListener) {

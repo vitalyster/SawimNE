@@ -14,7 +14,9 @@ import ru.sawim.SawimApplication;
 import ru.sawim.R;
 import ru.sawim.view.PictureView;
 import ru.sawim.view.menu.JuickMenu;
+import ru.sawim.view.tasks.HtmlTask;
 import sawim.Clipboard;
+import sawim.comm.Util;
 import sawim.modules.DebugLog;
 
 /**
@@ -42,7 +44,7 @@ public class TextLinkClick implements TextLinkClickListener {
             new JuickMenu(SawimApplication.getCurrentActivity(), currentProtocol, currentContact, clickedString).show();
             return;
         }
-        if (isLongTap || Jid.isConference(clickedString)) {
+        if (isLongTap || Jid.isJID(clickedString)) {
             CharSequence[] items = new CharSequence[2];
             items[0] = SawimApplication.getCurrentActivity().getString(R.string.copy);
             items[1] = SawimApplication.getCurrentActivity().getString(R.string.add_contact);
@@ -70,16 +72,11 @@ public class TextLinkClick implements TextLinkClickListener {
                 DebugLog.panic("onTextLinkClick", e);
             }
         } else {
-            if (!clickedString.startsWith("http://") && !clickedString.startsWith("https://"))
+            if (!Util.isUrl(clickedString))
                 clickedString = "http://" + clickedString;
-            String url = clickedString.toLowerCase();
-            if (url.startsWith("http://pic4u.ru/")
-                    || (url.startsWith("https://db.tt/"))
-                    || (url.endsWith(".jpg"))
-                    || (url.endsWith(".jpeg"))
-                    || (url.endsWith(".png"))
-                    || (url.endsWith(".gif"))
-                    || (url.endsWith(".bmp"))) {
+            if (clickedString.toLowerCase().startsWith(HtmlTask.PIK4U)
+                    || (clickedString.toLowerCase().startsWith("https://db.tt/"))
+                    || Util.isImageFile(clickedString)) {
                 PictureView pictureView = new PictureView();
                 pictureView.setLink(clickedString);
                 FragmentTransaction transaction = SawimApplication.getCurrentActivity().getSupportFragmentManager().beginTransaction();

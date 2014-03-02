@@ -116,7 +116,7 @@ public final class FileTransfer implements FileBrowserListener, PhotoListener, R
             fileSize = in.available();
             byte[] image = null;
 
-            if ((fileSize < MAX_IMAGE_SIZE) && isImageFile()) {
+            if ((fileSize < MAX_IMAGE_SIZE) && Util.isImageFile(filename)) {
                 image = FileSystem.getInstance().getFileContent(filename);
             }
             setData(in, fileSize);
@@ -312,7 +312,7 @@ public final class FileTransfer implements FileBrowserListener, PhotoListener, R
         HttpURLConnection conn = null;
         InputStream responseIn = null;
 
-        if (isImageFile()) {
+        if (Util.isImageFile(filename)) {
             try {
                 conn = (HttpURLConnection) new URL(UPLOAD_URL).openConnection();
                 conn.setDoOutput(true);
@@ -518,9 +518,5 @@ public final class FileTransfer implements FileBrowserListener, PhotoListener, R
             DebugLog.panic("send file", e);
             throw new SawimException(194, 0);
         }
-    }
-
-    private boolean isImageFile() {
-        return filename.endsWith(".bmp") || filename.endsWith(".gif") || filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".png");
     }
 }
