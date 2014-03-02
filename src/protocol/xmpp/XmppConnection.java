@@ -452,6 +452,7 @@ public final class XmppConnection extends ClientConnection {
             packetsIn = 0;
             packetsOut = 0;
             session.save();
+            resourceBinding();
         }
           else if (x.is("compressed")) {
             setStreamCompression();
@@ -1860,19 +1861,23 @@ public final class XmppConnection extends ClientConnection {
             }
         }
         if (x.contains("bind")) {
-            DebugLog.systemPrintln("[INFO-JABBER] Send bind request");
-            sendRequest("<iq type='set' id='bind'>"
-                    + "<bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>"
-                    + "<resource>" + Util.xmlEscape(resource) + "</resource>"
-                    + "</bind>"
-                    + "</iq>");
-            return;
+            resourceBinding();
         }
         x2 = x.getFirstNode("auth", "http://jabber.org/features/iq-auth");
         if (null != x2) {
             nonSaslLogin();
             return;
         }
+    }
+
+    private void resourceBinding() throws SawimException {
+        DebugLog.systemPrintln("[INFO-JABBER] Send bind request");
+        sendRequest("<iq type='set' id='bind'>"
+                + "<bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>"
+                + "<resource>" + Util.xmlEscape(resource) + "</resource>"
+                + "</bind>"
+                + "</iq>");
+        return;
     }
 
     private void parseChallenge(XmlNode x) throws SawimException {
