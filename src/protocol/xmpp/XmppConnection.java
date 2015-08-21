@@ -410,12 +410,18 @@ public final class XmppConnection extends ClientConnection {
 
         setProgress(30);
         socket.start();
-		if (isSessionManagementEnabled()) {
+        requestConferenceInfo(domain_);
+
+        if (isSessionManagementEnabled()) {
             usePong();
             setProgress(100);
         } else {
+            try {
+                write(GET_ROSTER_XML);
+            } catch (SawimException e) {
+                e.printStackTrace();
+            }
 			requestDiscoServerItems();
-			requestConferenceInfo(domain_);
 			setProgress(50);
 			usePong();
 			setProgress(60);
@@ -2681,11 +2687,6 @@ public final class XmppConnection extends ClientConnection {
                 String from = StringConvertor.notNull(iq.getAttribute(S_FROM));
                 if (serverFeatures.getServerDiscoItems().get(iq.getId()) != null) {
                     serverFeatures.parseServerFeatures(iqQuery, iq.getId());
-                }
-                try {
-                    write(GET_ROSTER_XML);
-                } catch (SawimException e) {
-                    e.printStackTrace();
                 }
                 enableCarbons();
                 String name = iqQuery.getFirstNodeAttribute("identity", XmlNode.S_NAME);

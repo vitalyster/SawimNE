@@ -27,8 +27,8 @@ public class MessageArchiveManagement {
         }
         iq += "type='set' id='" + XmppConnection.generateId() + "'>"
                 + "<query xmlns='urn:xmpp:mam:0' queryid='" + query.queryId + "'>"
-                + "<x xmlns='jabber:x:data'>"
-                + "<field var='FORM_TYPE'>"
+                + "<x xmlns='jabber:x:data' type='submit'>"
+                + "<field var='FORM_TYPE' type='hidden'>"
                 + "<value>urn:xmpp:mam:0</value>"
                 + "</field>";
         if (query.getStart() > 0) {
